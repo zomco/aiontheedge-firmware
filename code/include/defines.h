@@ -234,11 +234,19 @@
     #define CAM_PIN_PCLK     GPIO_NUM_22
 
     //Statusled + ClassControllCamera
+    #define BOARD_HAS_STATUS_LED
     #define BLINK_GPIO GPIO_NUM_33              // PIN for red board LED, On the board the LED is on the IO2, but it is used for the SD
-	
+
     //ClassControllCamera
+    #define BOARD_HAS_FLASHLIGHT_LED
     #define FLASH_GPIO GPIO_NUM_12              // PIN for flashlight LED
     #define USE_PWM_LEDFLASH                    // if __LEDGLOBAL is defined, a global variable is used for LED control, otherwise locally and each time a new
+
+    //main: the internal pullup of the SD DAT3 line has to be set manually (see Init_NVS_SDCard())
+    #define SDCARD_FORCE_D3_PULLUP
+
+    //server_GPIO: GPIOs which are free to be used for external hardware
+    #define GPIO_USER_SELECTABLE_PINS 0, 1, 3, 4, 12, 13
 
 #elif defined(BOARD_M5STACK_PSRAM) // M5STACK PSRAM PIN Map
     #define CAM_PIN_PWDN     GPIO_NUM_NC
@@ -260,11 +268,16 @@
     #define CAM_PIN_PCLK     GPIO_NUM_21
 
     //Statusled + ClassControllCamera
+    #define BOARD_HAS_STATUS_LED
     #define BLINK_GPIO GPIO_NUM_33              // PIN for red board LED
-	
+
     //ClassControllCamera
+    #define BOARD_HAS_FLASHLIGHT_LED
     #define FLASH_GPIO GPIO_NUM_4               // PIN for flashlight LED
     #define USE_PWM_LEDFLASH                    // if __LEDGLOBAL is defined, a global variable is used for LED control, otherwise locally and each time a new
+
+    //server_GPIO: GPIOs which are free to be used for external hardware
+    #define GPIO_USER_SELECTABLE_PINS 0, 1, 3, 4, 12, 13
 
 
 #elif defined(BOARD_ESP32CAM_AITHINKER) // ESP32Cam (AiThinker) PIN Map
@@ -283,6 +296,7 @@
 		#define GPIO_SDCARD_D3 GPIO_NUM_13
 	#endif
 
+    #define BOARD_HAS_CAM_PWDN_PIN        // camera can be power cycled, see PowerResetCamera()
     #define CAM_PIN_PWDN     GPIO_NUM_32
     #define CAM_PIN_RESET    GPIO_NUM_NC  //software reset will be performed
     #define CAM_PIN_XCLK     GPIO_NUM_0
@@ -302,11 +316,83 @@
     #define CAM_PIN_PCLK     GPIO_NUM_22
 
     //Statusled + ClassControllCamera
+    #define BOARD_HAS_STATUS_LED
     #define BLINK_GPIO GPIO_NUM_33              // PIN for red board LED
-	
+
     //ClassControllCamera
+    #define BOARD_HAS_FLASHLIGHT_LED
     #define FLASH_GPIO GPIO_NUM_4               // PIN for flashlight LED
     #define USE_PWM_LEDFLASH                    // if __LEDGLOBAL is defined, a global variable is used for LED control, otherwise locally and each time a new
+
+    //main: the internal pullup of the SD DAT3 line has to be set manually (see Init_NVS_SDCard())
+    #define SDCARD_FORCE_D3_PULLUP
+
+    //server_GPIO: GPIOs which are free to be used for external hardware
+    #define GPIO_USER_SELECTABLE_PINS 0, 1, 3, 4, 12, 13
+
+#elif defined(BOARD_ESP32S3CAM) // ESP32-S3-CAM (ESP32-S3-WROOM-1 based camera boards) PIN Map
+    /* Covers the widespread ESP32-S3-CAM boards which share one camera/SD pinout,
+       e.g. GOOUUU ESP32-S3-CAM and Freenove ESP32-S3-WROOM CAM.
+       Verified against the reference pin maps of the esp32-camera component
+       (BOARD_ESP32S3_WROOM / BOARD_ESP32S3_GOOUUU).
+       The camera itself (OV2640 / OV3660 / OV5640) is detected at runtime, see CCamera::InitCam(). */
+
+	// SD card (operated with SDMMC peripheral, routed through the GPIO matrix)
+	//-------------------------------------------------
+	#define GPIO_SDCARD_CLK GPIO_NUM_39
+	#define GPIO_SDCARD_CMD GPIO_NUM_38
+	#define GPIO_SDCARD_D0  GPIO_NUM_40
+	// Only DAT0 is routed on these boards, therefore 1-line mode is mandatory
+	#ifndef __SD_USE_ONE_LINE_MODE__
+		#error "ESP32-S3-CAM boards only route the SD DAT0 line, __SD_USE_ONE_LINE_MODE__ is mandatory"
+	#endif
+	#define GPIO_SDCARD_D1 GPIO_NUM_NC
+	#define GPIO_SDCARD_D2 GPIO_NUM_NC
+	#define GPIO_SDCARD_D3 GPIO_NUM_NC
+
+    #define CAM_PIN_PWDN     GPIO_NUM_NC  // not connected, camera is permanently powered
+    #define CAM_PIN_RESET    GPIO_NUM_NC  // software reset will be performed
+    #define CAM_PIN_XCLK     GPIO_NUM_15
+    #define CAM_PIN_SIOD     GPIO_NUM_4
+    #define CAM_PIN_SIOC     GPIO_NUM_5
+
+    #define CAM_PIN_D7       GPIO_NUM_16
+    #define CAM_PIN_D6       GPIO_NUM_17
+    #define CAM_PIN_D5       GPIO_NUM_18
+    #define CAM_PIN_D4       GPIO_NUM_12
+    #define CAM_PIN_D3       GPIO_NUM_10
+    #define CAM_PIN_D2       GPIO_NUM_8
+    #define CAM_PIN_D1       GPIO_NUM_9
+    #define CAM_PIN_D0       GPIO_NUM_11
+    #define CAM_PIN_VSYNC    GPIO_NUM_6
+    #define CAM_PIN_HREF     GPIO_NUM_7
+    #define CAM_PIN_PCLK     GPIO_NUM_13
+
+    /* In contrast to the ESP32Cam (AiThinker), the ESP32-S3-CAM boards do not agree on
+       a status LED / flashlight LED. Both are therefore optional and have to be assigned
+       to the pin of the respective board, e.g. in platformio.ini:
+           -D BOARD_STATUS_LED_GPIO=2
+           -D BOARD_FLASHLIGHT_GPIO=21
+       If no flashlight pin is given, an external flashlight can still be driven through
+       the [GPIO] section of config.ini (see GpioHandler). */
+
+    //Statusled + ClassControllCamera
+    #ifdef BOARD_STATUS_LED_GPIO
+        #define BOARD_HAS_STATUS_LED
+        #define BLINK_GPIO ((gpio_num_t)BOARD_STATUS_LED_GPIO)
+    #endif
+
+    //ClassControllCamera
+    #ifdef BOARD_FLASHLIGHT_GPIO
+        #define BOARD_HAS_FLASHLIGHT_LED
+        #define FLASH_GPIO ((gpio_num_t)BOARD_FLASHLIGHT_GPIO)
+        #define USE_PWM_LEDFLASH                // if __LEDGLOBAL is defined, a global variable is used for LED control, otherwise locally and each time a new
+    #endif
+
+    /* server_GPIO: GPIOs which are free to be used for external hardware.
+       Excluded are the camera and SD pins, the SPI flash / octal PSRAM pins (26 - 37),
+       the USB pins (19, 20), the UART console (43, 44) and the strapping pins (0, 45, 46). */
+    #define GPIO_USER_SELECTABLE_PINS 1, 2, 3, 14, 21, 41, 42, 47, 48
 
 #else
     #error "Board not selected"

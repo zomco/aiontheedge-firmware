@@ -30,6 +30,10 @@
 static const char *TAG = "GPIO";
 QueueHandle_t gpio_queue_handle = NULL;
 
+// Renders the board specific GPIO_USER_SELECTABLE_PINS list (defines.h) as text, e.g. "0, 1, 3, 4, 12, 13"
+#define STRINGIFY_(...) #__VA_ARGS__
+#define STRINGIFY(...) STRINGIFY_(__VA_ARGS__)
+
 GpioPin::GpioPin(gpio_num_t gpio, const char* name, gpio_pin_mode_t mode, gpio_int_type_t interruptType, uint8_t dutyResolution, std::string mqttTopic, bool httpEnable) 
 {
     _gpio = gpio;
@@ -355,7 +359,16 @@ bool GpioHandler::readConfig()
         {
             ESP_LOGI(TAG,"Enable GP%s in %s mode", splitted[0].c_str(), splitted[1].c_str());
             std::string gpioStr = splitted[0].substr(2, 2);
-            gpio_num_t gpioNr = (gpio_num_t)atoi(gpioStr.c_str());
+            gpio_num_t gpioNr = resolvePinNr((uint8_t)atoi(gpioStr.c_str()));
+
+            // The web interface offers a fixed set of GPIOs, on other boards than the ESP32Cam (AiThinker)
+            // some of them are used by the camera or the SD card. Configuring those would break the device.
+            if (gpioNr == GPIO_NUM_NC)
+            {
+                LogFile.WriteToFile(ESP_LOG_WARN, TAG, "GP" + splitted[0] + " is not free on this board (used by camera, SD card or flash), configuration ignored. Free GPIOs: " + STRINGIFY(GPIO_USER_SELECTABLE_PINS));
+                continue;
+            }
+
             gpio_pin_mode_t pinMode = resolvePinMode(toLower(splitted[1]));
             gpio_int_type_t intType = resolveIntType(toLower(splitted[2]));
             uint16_t dutyResolution = (uint8_t)atoi(splitted[3].c_str());
@@ -518,11 +531,11 @@ esp_err_t GpioHandler::handleHttpRequest(httpd_req_t *req)
 
     int gpionum = stoi(gpio);
 
-    // frei: 16; 12-15; 2; 4  // nur 12 und 13 funktionieren 2: reboot, 4: BlitzLED, 15: PSRAM, 14/15: DMA für SDKarte ???
+    // Only the pins which are not used by camera, SD card or flash/PSRAM are selectable, see GPIO_USER_SELECTABLE_PINS in defines.h
     gpio_num_t gpio_num = resolvePinNr(gpionum);
     if (gpio_num == GPIO_NUM_NC)
     {
-        std::string zw = "GPIO" + std::to_string(gpionum) + " unsupported - only 12 & 13 free";
+        std::string zw = "GPIO" + std::to_string(gpionum) + " unsupported - free GPIOs on this board: " + STRINGIFY(GPIO_USER_SELECTABLE_PINS);
             httpd_resp_sendstr_chunk(req, zw.c_str());
             httpd_resp_sendstr_chunk(req, NULL);          
             return ESP_OK;
@@ -621,24 +634,18 @@ void GpioHandler::flashLightEnable(bool value)
     }
 }
 
-gpio_num_t GpioHandler::resolvePinNr(uint8_t pinNr) 
+gpio_num_t GpioHandler::resolvePinNr(uint8_t pinNr)
 {
-    switch(pinNr)  {
-        case 0:
-            return GPIO_NUM_0;
-        case 1:
-            return GPIO_NUM_1;
-        case 3:
-            return GPIO_NUM_3;
-        case 4:
-            return GPIO_NUM_4;
-        case 12:
-            return GPIO_NUM_12;
-        case 13:
-            return GPIO_NUM_13;
-        default: 
-            return GPIO_NUM_NC;   
+    // The pins which are not occupied by camera, SD card or flash/PSRAM are board specific, see defines.h
+    static const int userSelectablePins[] = {GPIO_USER_SELECTABLE_PINS};
+
+    for (unsigned int i = 0; i < (sizeof(userSelectablePins) / sizeof(userSelectablePins[0])); ++i) {
+        if (userSelectablePins[i] == (int)pinNr) {
+            return (gpio_num_t)pinNr;
+        }
     }
+
+    return GPIO_NUM_NC;
 }
 
 gpio_pin_mode_t GpioHandler::resolvePinMode(std::string input) 

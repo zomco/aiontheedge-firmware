@@ -19,6 +19,25 @@ TaskHandle_t xHandle_task_StatusLED = NULL;
 struct StatusLEDData StatusLEDData = {};
 
 
+/* Not every board provides an internal status LED (see BOARD_HAS_STATUS_LED in defines.h).
+   If there is none, the blink sequences are still processed, they just do not drive a GPIO. */
+#ifdef BOARD_HAS_STATUS_LED
+static void statusLedInit(void)
+{
+	gpio_pad_select_gpio(BLINK_GPIO); // Init the GPIO
+	gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT); // Set the GPIO as a push/pull output
+}
+
+static void statusLedSet(uint32_t level)
+{
+	gpio_set_level(BLINK_GPIO, level);
+}
+#else
+static void statusLedInit(void) {}
+static void statusLedSet(uint32_t) {}
+#endif
+
+
 void task_StatusLED(void *pvParameter)
 {
     //ESP_LOGD(TAG, "task_StatusLED - create");
@@ -27,9 +46,8 @@ void task_StatusLED(void *pvParameter)
 		//ESP_LOGD(TAG, "task_StatusLED - start");
 		struct StatusLEDData StatusLEDDataInt = StatusLEDData;
 
-		gpio_pad_select_gpio(BLINK_GPIO); // Init the GPIO
-		gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT); // Set the GPIO as a push/pull output
-		gpio_set_level(BLINK_GPIO, 1);// LED off
+		statusLedInit();
+		statusLedSet(1);// LED off
 
 		for (int i=0; i<2; ) // Default: repeat 2 times
 		{
@@ -38,9 +56,9 @@ void task_StatusLED(void *pvParameter)
 
 			for (int j = 0; j < StatusLEDDataInt.iSourceBlinkCnt; ++j)
 			{
-				gpio_set_level(BLINK_GPIO, 0);
+				statusLedSet(0);
 				vTaskDelay(StatusLEDDataInt.iBlinkTime / portTICK_PERIOD_MS);
-				gpio_set_level(BLINK_GPIO, 1);      
+				statusLedSet(1);      
 				vTaskDelay(StatusLEDDataInt.iBlinkTime / portTICK_PERIOD_MS);
 			}
 
@@ -48,9 +66,9 @@ void task_StatusLED(void *pvParameter)
 
 			for (int j = 0; j < StatusLEDDataInt.iCodeBlinkCnt; ++j)
 			{
-				gpio_set_level(BLINK_GPIO, 0);      
+				statusLedSet(0);      
 				vTaskDelay(StatusLEDDataInt.iBlinkTime / portTICK_PERIOD_MS);
-				gpio_set_level(BLINK_GPIO, 1);
+				statusLedSet(1);
 				vTaskDelay(StatusLEDDataInt.iBlinkTime / portTICK_PERIOD_MS);
 			}
 			vTaskDelay(1500 / portTICK_PERIOD_MS);	// Delay to signal new round
@@ -147,7 +165,6 @@ void StatusLEDOff(void)
 	if (xHandle_task_StatusLED)
 		vTaskDelete(xHandle_task_StatusLED); // Delete task for StatusLED to force stop of blinking
 	
-	gpio_pad_select_gpio(BLINK_GPIO); // Init the GPIO
-	gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT); // Set the GPIO as a push/pull output
-	gpio_set_level(BLINK_GPIO, 1);// LED off
+	statusLedInit();
+	statusLedSet(1);// LED off
 }

@@ -25,6 +25,29 @@ cd code
 platformio run --environment esp32cam
 ```
 
+#### Build targets
+
+| Environment | Hardware |
+|---|---|
+| `esp32cam` | ESP32Cam (AiThinker), OV2640 |
+| `esp32s3cam` | ESP32-S3-CAM (ESP32-S3-WROOM-1 based boards, e.g. GOOUUU / Freenove) with OV2640, OV3660 or OV5640 |
+
+```
+platformio run --environment esp32s3cam
+```
+
+Notes on the ESP32-S3-CAM target:
+- The camera type is detected at runtime (`CCamera::InitCam()`), so the same binary works with an OV2640, OV3660 or OV5640 module.
+- The pin map is in `include/defines.h` (`BOARD_ESP32S3CAM`), the target specific ESP-IDF
+  configuration in `sdkconfig.defaults.esp32s3` (octal PSRAM, 8 MB flash). Adapt the latter
+  if your module uses quad PSRAM (`CONFIG_SPIRAM_MODE_QUAD=y`).
+- The ESP32-S3-CAM variants do not agree on a status LED / flashlight LED. Both are optional
+  and can be enabled with `-D BOARD_STATUS_LED_GPIO=<pin>` / `-D BOARD_FLASHLIGHT_GPIO=<pin>`
+  in `platformio.ini`. Without them, an external flashlight can still be driven through the
+  `[GPIO]` section of `config.ini`.
+- `dependencies.lock` is target specific and gets rewritten when you switch between the
+  `esp32cam` and `esp32s3cam` environment.
+
 ### Upload
 ```
 pio run --target upload --upload-port /dev/ttyUSB0

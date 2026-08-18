@@ -18,32 +18,30 @@ static const char *TAG = "server_cam";
 
 void PowerResetCamera()
 {
-    // Use reset only if pin is available
-    if (CAM_PIN_PWDN == GPIO_NUM_NC)
-    {
-        LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "No power down pin availbale to reset camera");
-    }
-    else
-    {
-        ESP_LOGD(TAG, "Resetting camera by power down line");
-        gpio_config_t conf = {
-            .pin_bit_mask = 1LL << CAM_PIN_PWDN,
-            .mode = GPIO_MODE_OUTPUT,
-            .pull_up_en = GPIO_PULLUP_DISABLE,
-            .pull_down_en = GPIO_PULLDOWN_DISABLE,
-            .intr_type = GPIO_INTR_DISABLE,
-        };
-        gpio_config(&conf);
+    // Use reset only if pin is available. The check has to be done at compile time,
+    // an unconnected power down line (GPIO_NUM_NC) would result in a negative shift below.
+#ifndef BOARD_HAS_CAM_PWDN_PIN
+    LogFile.WriteToFile(ESP_LOG_DEBUG, TAG, "No power down pin availbale to reset camera");
+#else
+    ESP_LOGD(TAG, "Resetting camera by power down line");
+    gpio_config_t conf = {
+        .pin_bit_mask = 1LL << CAM_PIN_PWDN,
+        .mode = GPIO_MODE_OUTPUT,
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type = GPIO_INTR_DISABLE,
+    };
+    gpio_config(&conf);
 
-        // carefull, logic is inverted compared to reset pin
-        ESP_LOGD(TAG, "Camera power down");
-        gpio_set_level(CAM_PIN_PWDN, 1);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-        
-        ESP_LOGD(TAG, "Camera power up");
-        gpio_set_level(CAM_PIN_PWDN, 0);
-        vTaskDelay(pdMS_TO_TICKS(1000));
-    }
+    // carefull, logic is inverted compared to reset pin
+    ESP_LOGD(TAG, "Camera power down");
+    gpio_set_level(CAM_PIN_PWDN, 1);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+
+    ESP_LOGD(TAG, "Camera power up");
+    gpio_set_level(CAM_PIN_PWDN, 0);
+    vTaskDelay(pdMS_TO_TICKS(1000));
+#endif
 }
 
 esp_err_t handler_lightOn(httpd_req_t *req)

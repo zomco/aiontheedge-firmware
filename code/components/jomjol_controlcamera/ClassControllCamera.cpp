@@ -1028,7 +1028,11 @@ void CCamera::LightOnOff(bool status)
     }
     else
     {
-#ifdef USE_PWM_LEDFLASH
+#if !defined(BOARD_HAS_FLASHLIGHT_LED)
+        // Board without an internal flashlight LED, an external one can be driven by the gpioHandler
+        (void)status;
+        ESP_LOGD(TAG, "No internal Flash-LED available on this board");
+#elif defined(USE_PWM_LEDFLASH)
         if (status)
         {
             ESP_LOGD(TAG, "Internal Flash-LED turn on with PWM %d", Camera.LedIntensity);
@@ -1063,6 +1067,10 @@ void CCamera::LightOnOff(bool status)
 
 void CCamera::LEDOnOff(bool status)
 {
+#if !defined(BOARD_HAS_STATUS_LED)
+    // Board without an internal status LED
+    (void)status;
+#else
     if (xHandle_task_StatusLED == NULL)
     {
         // Init the GPIO
@@ -1080,6 +1088,7 @@ void CCamera::LEDOnOff(bool status)
             gpio_set_level(BLINK_GPIO, 0);
         }
     }
+#endif
 }
 
 void CCamera::SetImageWidthHeightFromResolution(framesize_t resol)

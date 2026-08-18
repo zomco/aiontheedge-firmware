@@ -26,7 +26,13 @@ extern "C"
 #include <esp_log.h>
 #include <esp_mac.h>
 #include <esp_timer.h>
+#include "sdkconfig.h"
 #include "../../include/defines.h"
+
+#if !CONFIG_IDF_TARGET_ESP32
+// All targets except the original ESP32 provide a real temperature sensor peripheral
+#include "driver/temperature_sensor.h"
+#endif
 
 #include "ClassLogFile.h"
 
@@ -649,11 +655,48 @@ string toLower(string in)
 }
 
 // CPU Temp
+#if CONFIG_IDF_TARGET_ESP32
+// The ESP32 has no temperature sensor peripheral, only the (misspelled) ROM function
 extern "C" uint8_t temprature_sens_read();
+
 float temperatureRead()
 {
 	return (temprature_sens_read() - 32) / 1.8;
 }
+#else
+static temperature_sensor_handle_t installTemperatureSensor()
+{
+	temperature_sensor_handle_t handle = NULL;
+	temperature_sensor_config_t config = TEMPERATURE_SENSOR_CONFIG_DEFAULT(-10, 80);
+
+	if (temperature_sensor_install(&config, &handle) != ESP_OK)
+	{
+		return NULL;
+	}
+
+	if (temperature_sensor_enable(handle) != ESP_OK)
+	{
+		temperature_sensor_uninstall(handle);
+		return NULL;
+	}
+
+	return handle;
+}
+
+float temperatureRead()
+{
+	// Initialization of a function local static is thread safe, temperatureRead() is called from several tasks
+	static temperature_sensor_handle_t tempSensor = installTemperatureSensor();
+	float temperature = 0;
+
+	if ((tempSensor == NULL) || (temperature_sensor_get_celsius(tempSensor, &temperature) != ESP_OK))
+	{
+		return 0;
+	}
+
+	return temperature;
+}
+#endif
 
 time_t addDays(time_t startTime, int days)
 {
