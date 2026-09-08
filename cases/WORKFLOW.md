@@ -120,9 +120,16 @@ python build.py check
 
 `python build.py build` 之后，人要看三样东西：
 
-### 3.1 `out/assembly.step` —— 整体渲染
+### 3.1 `out/assembly_views.svg` —— 先看这张，不用开 CAD
 
-用 CAD / FreeCAD / 在线 STEP 查看器打开。重点看：
+爆炸图的正交投影（正视 + 侧视）：每个件按装配顺序编号并上色，
+深色细杆是引导杆，从爆炸位置指回安装位置，**杆的方向就是装入方向**。
+"这个件装在哪、朝哪装"这类问题看这张就够了。
+
+### 3.2 `out/assembly_exploded.step` / `out/assembly.step` —— 整体渲染
+
+用 CAD / FreeCAD / 在线 STEP 查看器打开。爆炸图的子件名带装配序号，
+在模型树里能直接读出顺序。重点看：
 
 * 有没有"看起来就不对"的悬空、穿模、比例失调；
 * 走线路径是不是真的通；
@@ -130,7 +137,7 @@ python build.py check
 
 > 这一步不能省。**本项目所有结构性错误都是人在渲染图上发现的。**
 
-### 3.2 `out/sensor_view.svg` —— 模拟相机画面
+### 3.3 `out/sensor_view.svg` —— 模拟相机画面
 
 这是"验证 ESP32-S3-CAM 能读到表盘"这件事唯一能给人看的东西：
 
@@ -141,7 +148,7 @@ python build.py check
 
 **注意画面是左右镜像的**（光路含 1 次反射）。固件标 ROI 时按这个方向。
 
-### 3.3 切片预览（Bambu Studio）
+### 3.4 切片预览（Bambu Studio）
 
 按 DESIGN.md §5.9 的推荐姿态摆好，看：
 

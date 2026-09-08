@@ -42,7 +42,7 @@ from build123d import (
 
 __all__ = [
     "bx", "cyl_x", "cyl_y", "cyl_z", "cone_along",
-    "yz_plate", "mirror_x", "teardrop_z", "flatted_cylinder",
+    "yz_plate", "mirror_x", "teardrop_z", "flatted_cylinder", "rod",
     "wedge_yz", "safe_fillet",
 ]
 
@@ -170,6 +170,29 @@ def flatted_cylinder(loc: Location, d: float, length: float,
            * Pos(flat_at + d / 2, 0, length / 2)
            * Box(d, 2 * d, length + 2))
     return body - cut
+
+
+def rod(p0, p1, d: float = 1.6) -> Part:
+    """
+    连接两点的细圆杆 —— 爆炸图里的引导线。
+
+    用实体而不是曲线，是因为 STEP 装配体在多数看图工具里只显示实体；
+    一条 Edge 常常被直接忽略掉，那这条"箭头"就白画了。
+    """
+    import math
+
+    from build123d import Vector
+
+    a, b = Vector(*p0), Vector(*p1)
+    v = b - a
+    length = v.length
+    if length < 1e-6:
+        return Part()
+    # 把局部 +Z 转到 v 的方向：先绕 Y 转俯仰，再绕 Z 转方位
+    yaw = math.degrees(math.atan2(v.Y, v.X))
+    pitch = math.degrees(math.acos(max(-1.0, min(1.0, v.Z / length))))
+    return (Pos(a.X, a.Y, a.Z) * Rot(0, 0, yaw) * Rot(0, pitch, 0)
+            * Cylinder(d / 2, length, align=(Align.CENTER, Align.CENTER, Align.MIN)))
 
 
 def safe_fillet(part: Part, edges, radius: float) -> Part:

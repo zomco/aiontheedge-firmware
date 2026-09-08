@@ -23,7 +23,7 @@ from functools import lru_cache
 
 from build123d import Box, Cylinder, Location, Part, Pos, Rot, import_step
 
-from .geometry import bx, cyl_z, mirror_x
+from .geometry import bx, cyl_x, cyl_z, mirror_x
 from .layout import board_location, led_frame, mirror_frame
 from .params import Config
 
@@ -158,6 +158,14 @@ def led_pair(cfg: Config) -> RefModel:
     return RefModel(name="led_pair", shape=mirror_x(Part() + one), trust=trust, source=src)
 
 
+def led_single(cfg: Config) -> Part:
+    """+X 那一颗 LED（含引脚），已摆到灯座里。−X 那颗用 mirror_x 生成。"""
+    shp = load_step_fused(cfg, "led.step")
+    if shp is None:
+        return led_mock(cfg)
+    return Part() + (led_frame(cfg) * shp)
+
+
 def led_bodies(cfg: Config) -> Part:
     """
     只保留灯珠**本体**（法兰 + 穹顶），砍掉 25mm 长引脚。
@@ -233,37 +241,63 @@ def mirror_ref(cfg: Config) -> RefModel:
 
 def meter_mock(cfg: Config) -> RefModel:
     """
-    **判定用**的水表替身，完全由卡尺实测数据搭出来：
+    **判定用**的水表替身，由卡尺实测数据 + 样本外形表搭出来：
 
-    * 银圈：外径 82.1 / 内径 61.8 / 高 21.1 的圆环
+    * 银圈：外径 82.1 / 内径 61.8 / 高 21.1 的圆环（**抱箍的配合对象**）
     * 底部凸台：宽 9.5 高 2.8 的一圈（夹持带必须避开）
-    * 表体：按样本 L165 × B94 × H111 的方块包络（用来验抱箍不会撞表体）
+    * 表头壳体 + 中段铸体 + 两端管接：管轴在 z = −57
 
-    刻意**不建**蓝盖翻开后的姿态——那个尺寸还是估算（cover_open_top），
-    真要验证请先实测，然后把它变成这里的实体。
+    早期版本把表体做成一个 165×94×90 的**方块**。方块作为包络是保守的，
+    但在装配体里它就是一坨和支架糊在一起的砖 —— 人根本看不出哪是表哪是壳，
+    也就失去了"人工审图"这一环的意义。现在换成圆柱组合，看着像水表，
+    而"抱箍别撞表体"那条判据（FIT-13）本来就是自己另建保守方块，不受影响。
     """
     m = cfg.meter
+    # 银圈（抱箍真正咬住的地方）
     ring = cyl_z(0, 0, m.bezel_bottom_z, m.bezel_top_z, m.bezel_od)
     ring -= cyl_z(0, 0, m.bezel_bottom_z - 1, m.bezel_top_z + 1, m.bezel_id)
+    # 银圈底部凸台
     boss = cyl_z(0, 0, m.bezel_bottom_z, m.boss_top_z, m.bezel_od + 2 * m.boss_w)
     boss -= cyl_z(0, 0, m.bezel_bottom_z - 1, m.boss_top_z + 1, m.bezel_od)
-    # 表体：以表盘中心为参照的粗包络。高度自银圈底面往下 H − bezel_h。
-    body_top = m.bezel_bottom_z
-    body_bot = body_top - (m.body_height - m.bezel_h)
-    body = bx(-m.body_len / 2, m.body_len / 2,
-              -m.body_width / 2, m.body_width / 2,
-              body_bot, body_top)
-    return RefModel(name="meter", shape=ring + boss + body, trust=MOCK,
-                    source=f"{m.model} 卡尺实测 + 样本外形表")
+    # 表头壳体：从银圈底面接到中段铸体
+    housing_bot = m.pipe_axis_z + m.body_casting_d / 2 - 8.0
+    housing = cyl_z(0, 0, housing_bot, m.bezel_bottom_z, m.bezel_od)
+    # 中段铸体 + 两端管接（沿 X 的圆柱，轴在 z = pipe_axis_z）
+    half = m.body_casting_len / 2
+    casting = cyl_x(-half, half, 0, m.pipe_axis_z, m.body_casting_d)
+    stubs = cyl_x(-m.body_len / 2, m.body_len / 2, 0, m.pipe_axis_z, m.pipe_stub_d)
+    return RefModel(name="meter", shape=ring + boss + housing + casting + stubs,
+                    trust=MOCK, source=f"{m.model} 卡尺实测 + 样本外形表")
 
 
 def meter_illustrative(cfg: Config) -> RefModel | None:
     """
     ``watermeter-dn25.step`` —— 只用于人眼检视，**任何自检都不许引用**。
-    它是 DN25，实测用表是 DN15，表头尺寸对不上。
+    它是 DN25，实测用表是 DN15，表头尺寸对不上（银圈 Ø100.87 vs Ø82.1）。
+
+    坐标变换映射（**必须写全并逆向验算**，DESIGN_NOTES §7.1）::
+
+        STEP +Xs (管轴)     -> 全局 +X
+        STEP +Ys (竖直向上) -> 全局 +Z      ← 关键：这个 STEP 是"Y 朝上"的
+        STEP +Zs (宽度)     -> 全局 −Y
+
+        全局 = Rot(90°, X) 之后再平移 (0, 0, −dn25_bezel_top_ys + bezel_top_z)
+
+    逆向验算：
+
+    * ``(Xs, Ys, Zs) = (0, 104, 0)`` 银圈顶面中心 -> ``(0, 0, 7)`` = 全局银圈顶面 ✓
+    * ``Zs = 0`` -> ``Y = 0`` ✓ 表体中面落在 Y=0
+    * 行列式：``det[ex→(1,0,0), ey→(0,0,1), ez→(0,−1,0)] = +1``（纯旋转）✓
+
+    **之前这里根本没做变换**，STEP 原样丢进装配体，于是水表横躺在自己的
+    坐标系里和支架穿模 —— 装配体渲染图上看起来"融为一体"。
+    参考件也必须摆正，否则人工审图这一环就废了。
     """
     shp = load_step(cfg, "watermeter-dn25.step")   # 仅用于装配体展示，不参与布尔
     if shp is None:
         return None
-    return RefModel(name="meter_dn25_illustrative", shape=shp, trust=ILLUSTRATIVE,
-                    source="watermeter-dn25.step（DN25，仅供外观参考）")
+    dz = cfg.meter.bezel_top_z - cfg.meter.dn25_bezel_top_ys
+    placed = Pos(0, 0, dz) * Rot(90, 0, 0) * shp
+    return RefModel(name="meter_dn25_illustrative", shape=placed, trust=ILLUSTRATIVE,
+                    source="watermeter-dn25.step（DN25，银圈 Ø100.87，仅供外观参考；"
+                           "它比实测用表大一圈，装配体里会明显穿过抱箍，这是预期的）")

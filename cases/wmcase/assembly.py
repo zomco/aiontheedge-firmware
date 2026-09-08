@@ -44,6 +44,13 @@ class Step:
     note: str = ""
     pokayoke: str = ""             # 这一步靠什么防呆
     check_path: bool = True        # 是否需要沿路径做碰撞仿真
+    #: 爆炸图里这个件往哪个方向拉开（**单位向量**）、拉多远（mm）。
+    #: 方向就是它的装入方向的反向 —— 所以爆炸图看到的箭头方向
+    #: 就是装配时零件该走的方向，不用再对着说明书猜。
+    explode_dir: tuple[float, float, float] = (0.0, 0.0, 0.0)
+    explode_mm: float = 0.0
+    #: 爆炸位移要不要叠加主体的位移（装在主体上的件都要）
+    explode_on_body: bool = True
 
 
 def install_sequence(cfg: Config) -> list[Step]:
@@ -65,7 +72,8 @@ def install_sequence(cfg: Config) -> list[Step]:
              note=f"整机沿 −Z 落下 {lift:.1f}mm。16 条内棱单边过盈 "
                   f"{cfg.meter.bezel_od / 2 - (cfg.meter.bezel_od / 2 - c.collar_rib_interf):.2f}mm，"
                   f"需要稍用力；套不进去先检查银圈上有没有漆瘤。",
-             pokayoke="剖分缝和夹紧耳都在 +Y 侧（面向房间），装反了螺栓够不着。"),
+             pokayoke="剖分缝和夹紧耳都在 +Y 侧（面向房间），装反了螺栓够不着。",
+             explode_dir=(0, 0, 1), explode_mm=55.0, explode_on_body=False),
         Step(2, "拧紧两颗 M4 蝶形螺栓", "-", tool="徒手（蝶形螺丝）",
              present=("meter", "body"), check_path=False,
              note="上下两颗交替拧，各拧 2~3 圈轮换，避免夹持带张成 V 形。"
@@ -74,7 +82,8 @@ def install_sequence(cfg: Config) -> list[Step]:
         Step(3, "压入两颗草帽 LED", "leds",
              present=("meter", "body"), check_path=False, tool="徒手",
              note="引脚先穿过座孔底部的 Ø3.2 过孔，再把法兰压进座孔。",
-             pokayoke="★ 座孔有极性切边，灯珠只能按唯一姿态压进去（自检 POKA-03）。"),
+             pokayoke="★ 座孔有极性切边，灯珠只能按唯一姿态压进去（自检 POKA-03）。",
+             explode_mm=26.0),   # 方向按各自的灯轴算，见 exploded_offsets
         Step(4, "走 LED 引线：立板竖槽 → 横槽 → 吊臂 U 型腔 → 吊舱", "-",
              present=("meter", "body"), check_path=False, tool="镊子",
              note="吊臂是**下开口**的 U 型槽，线从下方塞进去即可，不用穿。"),
@@ -92,16 +101,19 @@ def install_sequence(cfg: Config) -> list[Step]:
                   "摄像头模组会自己被方腔的导向倒角引进去。"
                   "★ SD 卡（如果还用）必须**在这一步之前**插好，装上以后够不着。",
              pokayoke="★ 前腔在 Z 方向不对称（SD 卡座偏上），板子上下颠倒或"
-                      "前后调头都进不去（自检 POKA-04/05）。"),
+                      "前后调头都进不去（自检 POKA-04/05）。",
+             explode_dir=(0, 1, 0), explode_mm=62.0),
         Step(8, "把 EVA 泡棉贴在滑盖内侧", "-", present=("meter", "body", "board"),
              check_path=False, tool="双面胶",
-             note=f"泡棉厚 {c.cover_foam_t:.0f}mm，装上滑盖后把板卡顶向前止挡面。"),
+             note=f"泡棉厚 {c.cover_foam_t:.0f}mm，装上滑盖后把板卡顶向前止挡面。",
+             explode_dir=(0, 1, 0), explode_mm=118.0),
         Step(9, "滑盖从吊舱顶部插入，竖直下滑到底", "slide_cover",
              path=((0, 0, 78), (0, 0, 40), (0, 0, 12), (0, 0, 3), (0, 0, 0)),
              present=("meter", "body", "board"),
              note="对准顶部开口往下推，到底会有明显的落座感。",
              pokayoke="★ +X 滑槽里有一条定位筋，盖板装反（上下颠倒或前后调头）"
-                      "都会被筋顶住（自检 POKA-02）。"),
+                      "都会被筋顶住（自检 POKA-02）。",
+             explode_dir=(0, 0, 1), explode_mm=92.0),
         Step(10, "接 5V 电源线（底部水滴孔进线）", "-",
              present=("meter", "body", "board", "slide_cover"), check_path=False,
              note="进线孔朝下，防止楼道结露沿线倒灌。本地并 470~1000µF + 100nF。"),
@@ -110,13 +122,15 @@ def install_sequence(cfg: Config) -> list[Step]:
              tool="徒手 + 手套",
              note="镀膜面不可擦拭，只能气吹；划伤即报废，建议多备 2 片。",
              pokayoke="镜片是矩形玻璃，两面都能装 —— **这一处做不成几何防呆**。"
-                      "托板横梁上刻了 COATED SIDE DOWN，装之前对一眼。"),
+                      "托板横梁上刻了 COATED SIDE DOWN，装之前对一眼。",
+             explode_mm=70.0),   # 方向沿 T 型槽滑入方向，见 exploded_offsets
         Step(12, "把镜片托板垂直落到四根定位销上", "mirror_holder",
              path=((0, 30, 8), (0, 20, 8), (0, 10, 8), (0, 0, 8), (0, 0, 3), (0, 0, 0)),
              present=("meter", "body", "board", "slide_cover"),
              note="先从 +Y 方向平移进来，再垂直落下。四根销进孔后托板自然坐平。",
              pokayoke="★ 前后销直径不同（后 Ø4 / 前 Ø5），前后调头装不上"
-                      "（自检 POKA-01）。"),
+                      "（自检 POKA-01）。",
+             explode_dir=(0, 0, 1), explode_mm=46.0),
     ]
 
 
@@ -160,3 +174,63 @@ def teardown_sequence(cfg: Config) -> list[Step]:
              present=("meter",), ignore=("meter",),
              note="上方净空只有 70mm，这一步的行程必须提前核算（自检 SEQ-04）。"),
     ]
+
+
+# =============================================================================
+#  爆炸图
+# =============================================================================
+
+def exploded_offsets(cfg: Config) -> dict[str, tuple[float, float, float]]:
+    """
+    每个零件在爆炸图里的位移。
+
+    位移方向**直接来自装配步骤**（``Step.explode_dir``），所以爆炸图上
+    各件拉开的方向就是装配时它该走的方向 —— 图和说明书不可能对不上。
+
+    两个特殊件不能用一个固定方向表达，单独算：
+
+    * **两颗 LED** 是左右对称的，一个平移向量没法把它俩同时拉开；
+      所以对 +X 那颗沿它自己的灯轴向外推，再整体镜像（镜像会把位移也镜像过去）。
+    * **镜片**沿 T 型槽的滑入方向（45° 斜面内、朝前上方）拉出来，
+      这样一眼就能看出它是**从端口滑进去**的，不是从正面压进去的。
+
+    ``explode_on_body=True`` 的件会叠加主体的位移 —— 装在主体上的东西
+    应该跟着主体一起离开水表，否则爆炸图上会出现"零件穿过水表"的怪画面。
+    """
+    import math
+
+    steps = {st.part: st for st in install_sequence(cfg) if st.part != "-"}
+    body = steps["body"]
+    body_off = tuple(d * body.explode_mm for d in body.explode_dir)
+
+    out: dict[str, tuple[float, float, float]] = {"meter": (0.0, 0.0, 0.0),
+                                                  "body": body_off}
+    for name, st in steps.items():
+        if name == "body":
+            continue
+        base = body_off if st.explode_on_body else (0.0, 0.0, 0.0)
+        own = tuple(d * st.explode_mm for d in st.explode_dir)
+        out[name] = tuple(b + o for b, o in zip(base, own))
+
+    # 泡棉在 install_sequence 里没有独立步骤（贴在滑盖上），单独给一个
+    foam_step = steps.get("-")
+    out.setdefault("foam", (body_off[0], body_off[1] + 118.0, body_off[2]))
+
+    # 镜片：沿 T 型槽滑入方向的反向（局部 −Y = 全局 (0, +0.7071, +0.7071)）
+    d = steps["mirror_glass"].explode_mm
+    holder = out["mirror_holder"]
+    k = math.sqrt(0.5) * d
+    out["mirror_glass"] = (holder[0], holder[1] + k, holder[2] + k)
+    return out
+
+
+def led_explode_axis(cfg: Config) -> tuple[float, float, float]:
+    """
+    +X 那颗 LED 在爆炸图里的位移方向：沿自己的灯轴**向外**（背离表盘中心）。
+    −X 那颗由镜像得到，位移自然也镜像过去。
+    """
+    import math
+
+    lg = cfg.light
+    norm = math.hypot(lg.pos_r, lg.pos_z)
+    return (lg.pos_r / norm, 0.0, lg.pos_z / norm)

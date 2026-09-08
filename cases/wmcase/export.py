@@ -53,4 +53,11 @@ def export_all(design: Design, outdir: str, assembly: bool = True,
         written.append(path)
         print(f"  · {'assembly':<14} STEP {os.path.getsize(path) // 1024:>5} KB"
               + ("（含 DN25 外观参考件）" if illustrative else ""))
+
+        # 爆炸图：子件名带装配序号，另有引导杆连回安装位置
+        exp = os.path.join(outdir, "assembly_exploded.step")
+        export_step(design.exploded(), exp)
+        written.append(exp)
+        print(f"  · {'exploded':<14} STEP {os.path.getsize(exp) // 1024:>5} KB"
+              f"   （子件按装配顺序编号 00~12，99 是引导杆）")
     return written

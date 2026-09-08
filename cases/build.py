@@ -122,6 +122,9 @@ def cmd_build(args) -> int:
     print("  仿真画面 …")
     svg = rpt.write_sensor_view(design, os.path.join(args.out, "sensor_view.svg"))
     print(f"  · {svg}")
+    print("  装配正交视图 …")
+    views = rpt.write_assembly_views(design, os.path.join(args.out, "assembly_views.svg"))
+    print(f"  · {views}")
     return 0 if report.passed else 1
 
 

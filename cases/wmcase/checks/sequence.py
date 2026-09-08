@@ -161,6 +161,24 @@ def _dial_region(design):
     return bx(-70, 70, -60, 60, -30, 200)
 
 
+@rule("SEQ-06", "SEQ", "爆炸图里各零件互不重叠",
+      why="爆炸图是给**人**看的，它唯一的作用就是让人一眼看出"
+          "谁装在谁上面、按什么顺序、从哪个方向装进去。"
+          "只要有两个件还叠在一起，这个作用就没了 —— 而分离距离是手填的常数，"
+          "改了任何一个零件的尺寸都可能让它重新叠上。所以要有一条检查盯着。")
+def exploded_separated(design):
+    parts = [(ch.label, ch) for ch in design.exploded().children
+             if not ch.label.startswith("99_")]     # 引导杆本来就穿过零件，跳过
+    worst, pair = 0.0, ""
+    for i in range(len(parts)):
+        for j in range(i + 1, len(parts)):
+            v = inter_vol(parts[i][1], parts[j][1])
+            if v > worst:
+                worst, pair = v, f"{parts[i][0]} ∩ {parts[j][0]}"
+    return worst < 1.0, (f"{len(parts)} 个件两两求交，最大重叠 {fmt(worst)}"
+                         + (f"（{pair}）" if pair else ""))
+
+
 @rule("SEQ-05", "SEQ", "夹紧螺栓有徒手操作空间",
       why="蝶形螺丝要用手指拧。螺栓头周围如果被自家结构包住，"
           "现场只能拆掉别的件才能拧——这种事装配说明书里写不出来。")

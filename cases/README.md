@@ -36,6 +36,8 @@ python build.py inspect x.step       # 量一个 STEP 的包络（换开发板�
 | `mirror_holder.step` / `.3mf` | 镜片托板（每月抄表时整块提起） |
 | `slide_cover.step` / `.3mf` | 滑盖（竖直下滑，无螺丝） |
 | `assembly.step` | 装配体，含开发板 / 镜片 / LED / 水表替身，供整体检视 |
+| `assembly_exploded.step` | **爆炸图**，子件按装配顺序编号 00~12，另有引导杆指回安装位置 |
+| `assembly_views.svg` | 爆炸图的正交投影（正视 + 侧视），不开 CAD 也能看装配关系 |
 | `sensor_view.svg` | **模拟相机画面** —— 光线追踪的结果，一眼看出表盘读不读得到 |
 | `report.md` / `report.json` | 自检报告（进 git，可做版本间 diff） |
 

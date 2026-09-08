@@ -131,6 +131,81 @@ class Design:
                 children.append(Part(ill.shape.wrapped, label="meter_dn25_illustrative"))
         return Compound(children=children)
 
+    # ---------------- 爆炸图 ----------------
+    def exploded(self, spread: float = 1.0, guides: bool = True) -> Compound:
+        """
+        爆炸图 —— 回答"**谁装在谁上面、按什么顺序、从哪个方向装进去**"。
+
+        三条设计意图：
+
+        1. **分离方向 = 装入方向的反向**，而且直接取自 :mod:`wmcase.assembly`
+           的装配步骤。所以爆炸图上各件拉开的方向，就是装配时它该走的方向，
+           不用再对着说明书猜。改了装配顺序，爆炸图自动跟着变。
+        2. **子件名字带装配序号**（``01_body`` / ``07_board`` …），
+           在 CAD 的模型树里一眼就能读出顺序。
+        3. **引导杆**把每个件从爆炸位置连回安装位置，
+           人眼不用在空中猜"这块是塞哪儿的"。
+
+        :param spread: 分离距离的倍数，1.0 是默认间距
+        :param guides: 是否画引导杆
+        """
+        from build123d import Part as _Part
+
+        from .assembly import exploded_offsets, install_sequence, led_explode_axis
+        from .geometry import mirror_x, rod
+        from .refs import led_single
+
+        offsets = exploded_offsets(self.cfg)
+        order = {st.part: st.index for st in install_sequence(self.cfg) if st.part != "-"}
+
+        def moved(part: Part, key: str) -> Part:
+            dx, dy, dz = offsets.get(key, (0.0, 0.0, 0.0))
+            return Pos(dx * spread, dy * spread, dz * spread) * part
+
+        children: list[Part] = [
+            _Part((moved(self.meter, "meter")).wrapped, label="00_meter_mock"),
+            _Part(moved(self.body, "body").wrapped, label="01_body"),
+        ]
+
+        # 两颗 LED 各自沿自己的灯轴向外推 —— 一个平移向量没法把对称的两颗同时拉开，
+        # 所以先推 +X 那颗，再整体镜像（镜像会把位移一起镜像过去）。
+        ax = led_explode_axis(self.cfg)
+        led_step = next(st for st in install_sequence(self.cfg) if st.part == "leds")
+        base = offsets["body"]
+        d = led_step.explode_mm * spread
+        one = Pos(base[0] * spread + ax[0] * d,
+                  base[1] * spread + ax[1] * d,
+                  base[2] * spread + ax[2] * d) * led_single(self.cfg)
+        children.append(_Part(mirror_x(one).wrapped, label="03_leds"))
+
+        for key, label in (("board", "07_esp32s3cam"), ("foam", "08_eva_foam"),
+                           ("slide_cover", "09_slide_cover"),
+                           ("mirror_glass", "11_mirror_glass"),
+                           ("mirror_holder", "12_mirror_holder")):
+            src = {"board": self.board, "foam": self.foam,
+                   "slide_cover": self.slide_cover,
+                   "mirror_glass": self.mirror_glass,
+                   "mirror_holder": self.mirror_holder}[key]
+            children.append(_Part(moved(src, key).wrapped, label=label))
+
+        if guides:
+            installed = {"body": self.body, "board": self.board, "foam": self.foam,
+                         "slide_cover": self.slide_cover,
+                         "mirror_glass": self.mirror_glass,
+                         "mirror_holder": self.mirror_holder}
+            bars = Part()
+            for key, part in installed.items():
+                dx, dy, dz = offsets.get(key, (0.0, 0.0, 0.0))
+                if (dx, dy, dz) == (0.0, 0.0, 0.0):
+                    continue
+                c = part.bounding_box().center()
+                bars += rod((c.X, c.Y, c.Z),
+                            (c.X + dx * spread, c.Y + dy * spread, c.Z + dz * spread),
+                            1.6)
+            if bars.volume > 0:
+                children.append(_Part(bars.wrapped, label="99_assembly_guides"))
+        return Compound(children=children)
+
     # ---------------- 工具 ----------------
     def _timed(self, name: str, fn):
         t0 = time.time()

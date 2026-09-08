@@ -67,6 +67,17 @@ class Meter:
     boss_h: float = 2.8              # [实测] 银圈底部凸台高度（宽 9.5），夹持带必须避开
     boss_w: float = 9.5              # [实测] 银圈底部凸台宽度
 
+    # ---- 表体（只用于装配体检视和"抱箍别撞表体"的判据，不是精确外形）----
+    pipe_axis_z: float = -57.0       # [实测] 管轴中心 → 表盘玻璃面 57mm
+    body_casting_d: float = 70.0     # [估算] 中段铸体外径
+    body_casting_len: float = 90.0   # [估算] 中段铸体沿轴长度
+    pipe_stub_d: float = 30.0        # [估算] 两端管接外径（G3/4B 约 Ø26 + 活接）
+
+    # ---- watermeter-dn25.step 的摆放（**仅供外观参考，不参与任何判定**）----
+    #  STEP 自身坐标系：X = 管轴，**Y = 竖直向上**，Z = 宽度方向。
+    #  表头（Ø100.87 的银圈段）在 Ys 80~104，轴心落在 Xs=0 / Zs=0。
+    dn25_bezel_top_ys: float = 104.0  # [实测:STEP] 银圈顶面所在的 Ys
+
     # ---- 现场约束 ----
     headroom: float = 70.0           # [实测] 银圈顶面 → 上方最近障碍（40 台取**最小**值）
     cover_open_top: float = 60.0     # [估算] 蓝盖翻开后最高点（自银圈顶面算）

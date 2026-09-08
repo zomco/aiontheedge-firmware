@@ -8,6 +8,7 @@ out/*
 !out/report.md
 !out/report.json
 !out/sensor_view.svg
+!out/assembly_views.svg
 
 __pycache__/
 *.pyc

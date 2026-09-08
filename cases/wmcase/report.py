@@ -137,6 +137,143 @@ def write_json(design: Design, report: RunReport, path: str) -> str:
 #  模拟传感器画面
 # =============================================================================
 
+#: 爆炸图配色：按装配顺序渐变，水表用灰色
+_PART_COLORS = {
+    "00_meter_mock": "#9aa0a6",
+    "01_body": "#5b8ff9",
+    "03_leds": "#f6bd16",
+    "07_esp32s3cam": "#5ad8a6",
+    "08_eva_foam": "#d3d3d3",
+    "09_slide_cover": "#945fb9",
+    "11_mirror_glass": "#7cd6f9",
+    "12_mirror_holder": "#e8684a",
+    "99_assembly_guides": "#333333",
+}
+
+
+def write_assembly_views(design: Design, path: str, exploded: bool = True,
+                         tess_tol: float = 4.0) -> str:
+    """
+    爆炸图的**正交投影**（正视 + 侧视），直接出 SVG。
+
+    为什么要有它：装配体是 STEP，看它需要 CAD 或网格查看器。
+    而"这个件到底装在哪、朝哪个方向装进去"这种问题，评审时问得最多，
+    却最不值得为它开一次 CAD。所以顺手出一张能贴进 PR、贴进文档的图。
+
+    做法很土：把每个件粗三角化（默认 1.5mm 容差），把三角形正交投影到
+    XZ 面（正视，沿 +Y 看）和 YZ 面（侧视，沿 −X 看），按件上色填充。
+    不做消隐、不做光照 —— 它的用途是**看位置关系**，不是渲染效果图。
+
+    三角化容差刻意取得很粗（4mm）：1.5mm 时这张图有 4.5MB，
+    而它要回答的问题（哪个件在哪、朝哪装）在 4mm 下一点没损失。
+    坐标也取整到整数像素，同样是为了压体积。
+    """
+    parts = list((design.exploded() if exploded else design.assembly()).children)
+
+    # 先把所有件三角化，同时统计投影范围
+    meshes = []
+    for ch in parts:
+        try:
+            verts, tris = ch.tessellate(tess_tol)
+        except Exception:  # noqa: BLE001
+            continue
+        meshes.append((ch.label, verts, tris))
+
+    if not meshes:
+        raise RuntimeError("装配体三角化失败，出不了投影图")
+
+    def bounds(idx_a, idx_b):
+        lo_a = lo_b = 1e9
+        hi_a = hi_b = -1e9
+        for _lbl, verts, _tris in meshes:
+            for v in verts:
+                a, b = (v.X, v.Y, v.Z)[idx_a], (v.X, v.Y, v.Z)[idx_b]
+                lo_a, hi_a = min(lo_a, a), max(hi_a, a)
+                lo_b, hi_b = min(lo_b, b), max(hi_b, b)
+        return lo_a, hi_a, lo_b, hi_b
+
+    #  正视：横轴 = X，纵轴 = Z（沿 +Y 看进去）
+    #  侧视：横轴 = Y，纵轴 = Z（沿 −X 看进去）—— 这一张最能说明装配方向
+    views = [("正视图（沿 +Y 看）", 0, 2), ("侧视图（沿 −X 看）", 1, 2)]
+    scale = 1.35
+    pad = 26
+    panels = []
+    total_w = 0.0
+    max_h = 0.0
+    for title, ia, ib in views:
+        lo_a, hi_a, lo_b, hi_b = bounds(ia, ib)
+        w = (hi_a - lo_a) * scale + 2 * pad
+        h = (hi_b - lo_b) * scale + 2 * pad
+        panels.append((title, ia, ib, lo_a, hi_a, lo_b, hi_b, w, h))
+        total_w += w
+        max_h = max(max_h, h)
+
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w:.0f}" '
+           f'height="{max_h + 96:.0f}" font-family="sans-serif">',
+           f'<rect width="{total_w:.0f}" height="{max_h + 96:.0f}" fill="#fbfbfc"/>']
+
+    x_origin = 0.0
+    for title, ia, ib, lo_a, hi_a, lo_b, hi_b, w, h in panels:
+        out.append(f'<text x="{x_origin + pad:.0f}" y="20" font-size="14" '
+                   f'fill="#24292f">{title}</text>')
+
+        def px(v, _ia=ia, _ib=ib, _lo_a=lo_a, _hi_b=hi_b, _x=x_origin):
+            comp = (v.X, v.Y, v.Z)
+            # 纵轴翻转：SVG 的 y 向下，而 Z 向上
+            return (_x + pad + (comp[_ia] - _lo_a) * scale,
+                    28 + pad + (_hi_b - comp[_ib]) * scale)
+
+        for label, verts, tris in meshes:
+            color = _PART_COLORS.get(label, "#888888")
+            opacity = 0.95 if label.startswith("99_") else 0.55
+            polys = []
+            seen = set()
+            for ia_, ib_, ic_ in tris:
+                p0, p1, p2 = px(verts[ia_]), px(verts[ib_]), px(verts[ic_])
+                key = (round(p0[0]), round(p0[1]), round(p1[0]), round(p1[1]),
+                       round(p2[0]), round(p2[1]))
+                if key in seen:          # 正背面投影完全重合，只画一次
+                    continue
+                seen.add(key)
+                polys.append(f"M{key[0]} {key[1]}L{key[2]} {key[3]}"
+                             f"L{key[4]} {key[5]}Z")
+            out.append(f'<path d="{"".join(polys)}" fill="{color}" '
+                       f'fill-opacity="{opacity}" stroke="none"/>')
+        x_origin += w
+
+    # 图例：装配顺序 + 配色
+    from .assembly import install_sequence
+    steps = {st.part: st for st in install_sequence(design.cfg)}
+    key_map = {"01_body": "body", "03_leds": "leds", "07_esp32s3cam": "board",
+               "09_slide_cover": "slide_cover", "11_mirror_glass": "mirror_glass",
+               "12_mirror_holder": "mirror_holder"}
+    y = max_h + 46
+    x = pad
+    for label in sorted(_PART_COLORS):
+        color = _PART_COLORS[label]
+        step = steps.get(key_map.get(label, ""))
+        text = label[3:] if len(label) > 3 else label
+        if step is not None:
+            text = f"{label[:2]} {text}"
+        out.append(f'<rect x="{x:.0f}" y="{y - 10:.0f}" width="12" height="12" '
+                   f'fill="{color}"/>')
+        out.append(f'<text x="{x + 17:.0f}" y="{y:.0f}" font-size="12" '
+                   f'fill="#24292f">{text}</text>')
+        x += 150
+        if x > total_w - 150:
+            x = pad
+            y += 20
+    out.append(f'<text x="{pad}" y="{max_h + 88:.0f}" font-size="12" fill="#57606a">'
+               f'子件编号 = 装配顺序（见 ASSEMBLY.md）；深色细杆 = 引导杆，'
+               f'指向各件的安装位置，杆的方向就是装入方向</text>')
+    out.append("</svg>")
+
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(out))
+    return path
+
+
 def write_sensor_view(design: Design, path: str, n_rim: int = 48) -> str:
     """
     画出"相机会看到什么"。
