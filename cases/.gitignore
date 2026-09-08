@@ -1,0 +1,14 @@
+# 生成物：STEP / 3MF / 装配体都能从代码重建，不进 git
+#
+# 注意写法：必须是 `out/*` 而不是 `out/`——git 不会下降进被忽略的目录，
+# 写成 `out/` 的话后面的 `!` 例外全部失效。
+out/*
+
+# 但这三样要进 git：报告用于版本间 diff，仿真画面用于评审时直接看
+!out/report.md
+!out/report.json
+!out/sensor_view.svg
+
+__pycache__/
+*.pyc
+.venv/

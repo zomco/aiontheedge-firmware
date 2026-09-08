@@ -1,0 +1,61 @@
+name: Case Self-Check
+
+# 外壳设计的"机器验证"环节（见 cases/WORKFLOW.md 第 ② 步）。
+#
+# 只在 cases/ 变动时触发 —— 固件改动不需要重新跑几何自检。
+# 装 build123d 会拉下约 400MB 的 OpenCASCADE 绑定，所以做了 pip 缓存。
+#
+# 这一步**不导出模型**，只跑规则。导出物（STEP/3MF）是本地生成的，
+# 不进 git（cases/.gitignore），CI 只负责回答"这一版有没有阻断性错误"。
+
+on:
+  push:
+    paths:
+      - 'cases/**'
+      - '.github/workflows/case-check.yaml'
+  pull_request:
+    paths:
+      - 'cases/**'
+      - '.github/workflows/case-check.yaml'
+  workflow_dispatch:
+
+jobs:
+  self-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+          cache-dependency-path: cases/requirements.txt
+
+      - name: Install build123d
+        working-directory: cases
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run self-check
+        working-directory: cases
+        run: python build.py check
+
+      - name: Optical simulation preview
+        if: always()
+        working-directory: cases
+        run: python build.py sim || true
+
+      # 报告和模拟画面即使失败也传上来 —— 失败时它们才最有用
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: case-selfcheck-report
+          path: |
+            cases/out/report.md
+            cases/out/report.json
+            cases/out/sensor_view.svg
+          if-no-files-found: warn

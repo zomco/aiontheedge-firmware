@@ -1,10 +1,29 @@
-# 水表光学抄表装置 — 设计交接文档
+# 水表光学抄表装置 — 历史与经验存档
 
-> 面向接手本项目的 AI 或工程师。
-> 配套文件：`wm_rig.py`（build123d 参数化模型 + 自检套件）
+> ## ⚠ 先读这一段：这份文档现在的定位
 >
-> **如果你只有时间读一节，请读 [§7 踩过的坑](#7-踩过的坑)。**
-> 那里记录的不是结论，而是**产生错误的机制**——同样的机制会在你身上重演。
+> 这是 **v2.x 时代的设计交接文档**，保留下来是因为它的 **§7 踩过的坑**
+> 和 **§8 架构演进史**记录的不是结论，而是**产生错误的机制**——
+> 同样的机制会在下一个人（或 AI）身上重演。这两节是全项目最有价值的部分。
+>
+> **但它不再是当前设计的权威描述。** 当前设计看这些：
+>
+> | 你想知道 | 看这里 |
+> |---|---|
+> | 现在的设计长什么样、为什么 | [DESIGN.md](DESIGN.md) ← **主文档** |
+> | 尺寸具体是多少 | `wmcase/params.py` |
+> | 怎么改、怎么验证 | [WORKFLOW.md](WORKFLOW.md) |
+> | 怎么装 | [ASSEMBLY.md](ASSEMBLY.md) |
+>
+> 本文里已经过时的部分（v3.0 已改）：
+>
+> * §3.2 说"摄像头模组 27×27" —— **错的**，那是 PCB 宽度；模组本体只有 8.5×8.5
+> * §5.3 的"前后托台一高一低" —— **已推翻**，那个方案的托板拿不出来（见 DESIGN.md §5.3）
+> * §5.6 的"吊舱阶梯型腔固定板卡" —— 已按真实开发板重做成两级让位槽
+> * §4.4 的 LED 位置 (±38, 0, 30) —— 已降到 z=20
+> * §11 的 `wm_rig.py` 用法 —— 已换成 `python build.py`
+>
+> **如果只有时间读一节，请读 [§7 踩过的坑](#7-踩过的坑)。**
 
 ---
 
@@ -610,14 +629,16 @@ inter_vol(cone, body) < TOL   # 任何结构件进入 = 遮挡
 
 ### 11.1 修改模型的正确流程
 
+> ⚠ **已过时**，当前流程见 [WORKFLOW.md](WORKFLOW.md)。留在这里只为对照。
+
 ```bash
-pip install --break-system-packages build123d     # 0.11.1 验证可用
-python3 wm_rig.py --check-only                    # 改完先跑自检，约 5 秒
-python3 wm_rig.py --assembly --out ./out          # 全通过再导出
-python3 wm_rig.py --board my_esp32.step           # 换开发板
+pip install -r requirements.txt      # build123d 0.11.1
+python build.py check                # 改完先跑自检
+python build.py build                # 全通过再导出
+python build.py check --board esp32s3cam-1        # 换开发板
 ```
 
-**任何提交前必须 32 项全绿。** 如果你新增了结构，同时新增对应的自检项。
+**任何提交前必须零阻断性失败。** 如果你新增了结构，同时新增对应的自检项。
 
 ### 11.2 参数在哪里改
 
@@ -637,14 +658,7 @@ python3 wm_rig.py --board my_esp32.step           # 换开发板
 
 ### 11.4 文件清单
 
-```
-wm_rig.py            参数化模型 + 32 项自检 + STEP/3MF 导出
-DESIGN_NOTES.md      本文档
-out/body.step|3mf            主体
-out/mirror_holder.step|3mf   镜片托板
-out/slide_cover.step|3mf     滑盖
-out/assembly.step            装配体（含开发板与镜片，供整体检视）
-```
+> ⚠ **已过时**，当前结构见 [README.md](README.md)。
 
 ### 11.5 采购清单（单机）
 

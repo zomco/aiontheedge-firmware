@@ -1,0 +1,14 @@
+# 外壳设计工具链
+#
+# build123d 会顺带装上 cadquery-ocp（OpenCASCADE 的 Python 绑定，约 400MB）。
+# 已验证组合：Python 3.14 + build123d 0.11.1 + cadquery-ocp-novtk 7.9.3.1.1
+#
+#   pip install -r requirements.txt
+#
+# ⚠ Windows 上如果 import build123d 报
+#   `fontTools.ttLib.TTLibError: Not a TrueType or OpenType font`，
+#   那是系统字体目录里有坏字体（本机是 C:\Windows\Fonts\mstmc.ttf）。
+#   不用动系统字体 —— wmcase/compat.py 已经做了只影响本进程的兜底补丁，
+#   只要 `import wmcase` 就自动生效。
+
+build123d==0.11.1
