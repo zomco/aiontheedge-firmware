@@ -1,18 +1,18 @@
 {
-  "generated": "2026-09-08T22:04:25",
+  "generated": "2026-09-09T01:29:50",
   "board": {
     "source": "esp32s3cam-2.step",
     "trust": "authoritative"
   },
   "summary": {
-    "total": 118,
+    "total": 121,
     "blocking": 0,
     "warnings": 2,
     "passed": true
   },
   "volumes_cm3": {
     "body": 128.64,
-    "mirror_holder": 30.25,
+    "mirror_holder": 28.28,
     "slide_cover": 7.67
   },
   "results": [
@@ -78,7 +78,7 @@
       "title": "mirror_holder 体积在合理区间",
       "passed": true,
       "severity": "error",
-      "detail": "30.2 cm³（期望 10.0~60.0）"
+      "detail": "28.3 cm³（期望 10.0~60.0）"
     },
     {
       "id": "TOPO-03",
@@ -102,7 +102,7 @@
       "title": "mirror_holder 可网格化为 3MF",
       "passed": true,
       "severity": "error",
-      "detail": "三角面 14334 个"
+      "detail": "三角面 15098 个"
     },
     {
       "id": "TOPO-04",
@@ -118,7 +118,7 @@
       "title": "主体 ∩ 镜片托板 = 0",
       "passed": true,
       "severity": "error",
-      "detail": "0.73 mm³"
+      "detail": "0.00 mm³"
     },
     {
       "id": "FIT-02",
@@ -230,7 +230,7 @@
       "title": "托板确实坐在托台上（不是悬空）",
       "passed": true,
       "severity": "error",
-      "detail": "下沉 0.5mm 产生干涉 51.92 mm³"
+      "detail": "下沉 0.5mm 产生干涉 36.92 mm³"
     },
     {
       "id": "CONS-02",
@@ -238,7 +238,7 @@
       "title": "托板 +X 向平移 1mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "79.43 mm³"
+      "detail": "47.46 mm³"
     },
     {
       "id": "CONS-02",
@@ -246,7 +246,7 @@
       "title": "托板 −X 向平移 1mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "79.43 mm³"
+      "detail": "47.46 mm³"
     },
     {
       "id": "CONS-02",
@@ -254,7 +254,7 @@
       "title": "托板 +Y 向平移 1mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "78.01 mm³"
+      "detail": "73.49 mm³"
     },
     {
       "id": "CONS-02",
@@ -262,7 +262,7 @@
       "title": "托板 −Y 向平移 1mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "76.62 mm³"
+      "detail": "72.13 mm³"
     },
     {
       "id": "CONS-03",
@@ -366,7 +366,7 @@
       "title": "托板支承片止于立板内侧面之前",
       "passed": true,
       "severity": "error",
-      "detail": "支承片外缘 38.0 < 立板内面 42.5"
+      "detail": "支承片外缘 39.0 < 立板内面 42.5"
     },
     {
       "id": "CONS-12",
@@ -414,7 +414,7 @@
       "title": "[装配12] 把镜片托板垂直落到四根定位销上",
       "passed": true,
       "severity": "error",
-      "detail": "路径最大干涉 0.73 mm³ @ 偏移 (0, 0, 0) 撞到 body"
+      "detail": "路径最大干涉 0.00 mm³"
     },
     {
       "id": "SEQ-01-CLR",
@@ -454,7 +454,7 @@
       "title": "[抄表1] 握住托板横梁，垂直上提 8mm 脱离定位销",
       "passed": true,
       "severity": "error",
-      "detail": "路径最大干涉 0.73 mm³ @ 偏移 (0, 0, 0) 撞到 body"
+      "detail": "路径最大干涉 0.00 mm³"
     },
     {
       "id": "SEQ-02",
@@ -470,7 +470,7 @@
       "title": "[抄表4] 原路放回，确认四根销都进孔、托板不晃",
       "passed": true,
       "severity": "error",
-      "detail": "路径最大干涉 0.73 mm³ @ 偏移 (0, 0, 0) 撞到 body"
+      "detail": "路径最大干涉 0.00 mm³"
     },
     {
       "id": "SEQ-02-CLR",
@@ -502,7 +502,7 @@
       "title": "[拆卸1] 取下镜片托板（同抄表流程）",
       "passed": true,
       "severity": "error",
-      "detail": "路径最大干涉 0.73 mm³ @ 偏移 (0, 0, 0) 撞到 body"
+      "detail": "路径最大干涉 0.00 mm³"
     },
     {
       "id": "SEQ-03",
@@ -651,7 +651,15 @@
     {
       "id": "LED-01",
       "category": "LED",
-      "title": "LED 必需出射锥 ∩ 主体 ≈ 0",
+      "title": "灯珠发光面到表盘的光线不被遮挡（逐点追踪）",
+      "passed": true,
+      "severity": "error",
+      "detail": "42 个表盘点 × 18 个发光点 = 756 条光线，被挡 0（0.0%）"
+    },
+    {
+      "id": "LED-02",
+      "category": "LED",
+      "title": "有用光束 ∩ 主体",
       "passed": true,
       "severity": "error",
       "detail": "0.00 mm³（灯座根部允许微量）"
@@ -659,10 +667,10 @@
     {
       "id": "LED-02",
       "category": "LED",
-      "title": "光线能越过银圈内缘照进表盘井里",
+      "title": "有用光束 ∩ 镜片托板",
       "passed": true,
       "severity": "error",
-      "detail": "z(28.25) = 20.0 × 28.25 / 38.0 = 14.87mm > 井深 7.0 + 3"
+      "detail": "0.00 mm³（灯座根部允许微量）"
     },
     {
       "id": "LED-03",
@@ -670,28 +678,44 @@
       "title": "灯珠发光角覆盖整个表盘",
       "passed": true,
       "severity": "error",
-      "detail": "灯珠半角 60° ≥ 需 21°"
+      "detail": "灯珠标称半角 60° ≥ 需 41.1° + 5°；最难照到的是侧后方的表盘边缘，不是正对面"
     },
     {
       "id": "LED-04",
       "category": "LED",
-      "title": "镜面反射瓣打不进采集锥（不会出现高光）",
+      "title": "光线能越过银圈内缘照进表盘井里",
       "passed": true,
       "severity": "error",
-      "detail": "表盘中心入射角 62.2°，采集锥半角 13.4°，余量 48.9°（要求 >5°）"
+      "detail": "z(28.25) = 20.0 × 28.25 / 38.0 = 14.87mm > 井深 7.0 + 3"
     },
     {
       "id": "LED-05",
       "category": "LED",
-      "title": "两颗对置 LED —— 阴影互补",
+      "title": "每个表盘采样点都被**两颗**灯照到",
       "passed": true,
-      "severity": "info",
-      "detail": "单颗在最外圈投出的阴影带约 3.4mm 宽 （井深 7.0 × tan26.0°），由对侧那颗补上"
+      "severity": "error",
+      "detail": "42 点中：两灯可达 42，仅单灯 0，全黑 0"
     },
     {
       "id": "LED-06",
       "category": "LED",
-      "title": "灯珠不侵入受保护光锥",
+      "title": "OCR 关键区不会出现镜面高光",
+      "passed": true,
+      "severity": "error",
+      "detail": "关键区最小『反射-采集』夹角 46.9°（要求 >25°），最差在 指针1(-14,-8)"
+    },
+    {
+      "id": "LED-07",
+      "category": "LED",
+      "title": "整个表盘的镜面高光分布",
+      "passed": true,
+      "severity": "info",
+      "detail": "全表盘最小夹角 13.0°（r=28.2 处，通常落在同侧最外缘）；该处是蓝圈/刻度区，没有 OCR 数据"
+    },
+    {
+      "id": "LED-08",
+      "category": "LED",
+      "title": "灯珠不侵入相机的受保护光锥",
       "passed": true,
       "severity": "error",
       "detail": "0.00 mm³"
@@ -774,7 +798,7 @@
       "title": "mirror_holder 装得下 256³ 打印空间",
       "passed": true,
       "severity": "error",
-      "detail": "76×68×55mm"
+      "detail": "78×68×55mm"
     },
     {
       "id": "DIM-09",
@@ -790,7 +814,7 @@
       "title": "打印总重与 BOM 估算一致",
       "passed": true,
       "severity": "info",
-      "detail": "三件合计约 212g（body 163g，mirror_holder 38g，slide_cover 10g）"
+      "detail": "三件合计约 209g（body 163g，mirror_holder 36g，slide_cover 10g）"
     },
     {
       "id": "DFAM-01",
@@ -806,7 +830,7 @@
       "title": "mirror_holder 悬垂面积占比",
       "passed": true,
       "severity": "warn",
-      "detail": "1.75%（341/19521 mm²，阈值 4%）"
+      "detail": "1.81%（340/18779 mm²，阈值 4%）"
     },
     {
       "id": "DFAM-01",
@@ -830,7 +854,7 @@
       "title": "mirror_holder 壁厚采样不低于 0.8mm",
       "passed": true,
       "severity": "warn",
-      "detail": "400 个采样点，最小 0.62mm，低于下限的占 1.0%，最薄处约在 (24, 4, 46)"
+      "detail": "400 个采样点，最小 0.62mm，低于下限的占 1.5%，最薄处约在 (24, 4, 46)"
     },
     {
       "id": "DFAM-02",
@@ -854,7 +878,7 @@
       "title": "mirror_holder 边数统计",
       "passed": true,
       "severity": "info",
-      "detail": "912 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
+      "detail": "978 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
     },
     {
       "id": "DFAM-03",
@@ -878,7 +902,7 @@
       "title": "镜片托板前后调头装不到位",
       "passed": true,
       "severity": "error",
-      "detail": "调头后在标称位置就干涉 167.15 mm³（阈值 20.0）；销径 后 Ø4.0 / 前 Ø5.0，销位 y=-16 / 14（不对称）"
+      "detail": "调头后在标称位置就干涉 156.22 mm³（阈值 20.0）；销径 后 Ø4.0 / 前 Ø5.0，销位 y=-16 / 14（不对称）"
     },
     {
       "id": "POKA-02",
@@ -962,82 +986,84 @@
     }
   ],
   "timings_s": {
-    "CONS-01": 2.9,
-    "CONS-02": 1.34,
-    "CONS-03": 0.18,
-    "CONS-04": 0.28,
-    "CONS-05": 0.17,
-    "CONS-06": 0.09,
-    "CONS-07": 3.48,
-    "CONS-08": 6.82,
-    "CONS-09": 3.26,
+    "CONS-01": 3.28,
+    "CONS-02": 1.54,
+    "CONS-03": 0.22,
+    "CONS-04": 0.32,
+    "CONS-05": 0.25,
+    "CONS-06": 0.12,
+    "CONS-07": 4.31,
+    "CONS-08": 8.21,
+    "CONS-09": 4.14,
     "CONS-10": 0.0,
     "CONS-11": 0.0,
     "CONS-12": 0.0,
     "CONS-13": 0.0,
-    "DFAM-01": 3.65,
-    "DFAM-02": 6.37,
-    "DFAM-03": 0.07,
+    "DFAM-01": 4.77,
+    "DFAM-02": 8.44,
+    "DFAM-03": 0.11,
     "DFAM-04": 0.0,
     "DIM-01": 0.0,
     "DIM-02": 0.0,
     "DIM-03": 0.0,
     "DIM-04": 0.0,
-    "DIM-05": 0.43,
-    "DIM-06": 0.03,
+    "DIM-05": 0.59,
+    "DIM-06": 0.04,
     "DIM-07": 0.0,
     "DIM-08": 0.0,
-    "DIM-09": 0.04,
-    "DIM-10": 0.11,
-    "FIT-01": 0.24,
-    "FIT-02": 0.05,
-    "FIT-03": 0.12,
-    "FIT-04": 0.39,
-    "FIT-05": 1.34,
-    "FIT-06": 2.17,
-    "FIT-07": 1.16,
-    "FIT-08": 0.73,
+    "DIM-09": 0.05,
+    "DIM-10": 0.18,
+    "FIT-01": 0.22,
+    "FIT-02": 0.06,
+    "FIT-03": 0.16,
+    "FIT-04": 0.51,
+    "FIT-05": 1.84,
+    "FIT-06": 2.78,
+    "FIT-07": 1.51,
+    "FIT-08": 0.81,
     "FIT-09": 0.0,
-    "FIT-10": 0.06,
-    "FIT-11": 0.23,
-    "FIT-12": 0.2,
+    "FIT-10": 0.08,
+    "FIT-11": 0.26,
+    "FIT-12": 0.24,
     "FIT-13": 0.01,
-    "FIT-14": 0.2,
-    "LED-01": 0.13,
-    "LED-02": 0.0,
+    "FIT-14": 0.26,
+    "LED-01": 14.85,
+    "LED-02": 0.86,
     "LED-03": 0.0,
     "LED-04": 0.0,
-    "LED-05": 0.0,
-    "LED-06": 0.08,
-    "OPT-01": 1.59,
+    "LED-05": 1.64,
+    "LED-06": 0.0,
+    "LED-07": 0.14,
+    "LED-08": 0.09,
+    "OPT-01": 1.87,
     "OPT-02": 0.0,
     "OPT-03": 0.0,
-    "OPT-04": 0.1,
-    "OPT-05": 0.3,
+    "OPT-04": 0.12,
+    "OPT-05": 0.42,
     "OPT-06": 0.0,
     "OPT-07": 0.0,
     "OPT-08": 0.0,
     "OPT-09": 0.0,
     "OPT-10": 0.0,
-    "POKA-01": 0.33,
-    "POKA-02": 0.16,
-    "POKA-03": 0.18,
-    "POKA-04": 4.44,
-    "POKA-05": 3.1,
+    "POKA-01": 0.39,
+    "POKA-02": 0.19,
+    "POKA-03": 0.23,
+    "POKA-04": 5.6,
+    "POKA-05": 4.19,
     "POKA-06": 0.0,
-    "SEQ-01": 38.02,
-    "SEQ-02": 19.0,
-    "SEQ-03": 6.8,
-    "SEQ-04": 0.23,
-    "SEQ-06": 10.09,
-    "SEQ-05": 0.2,
+    "SEQ-01": 48.66,
+    "SEQ-02": 24.45,
+    "SEQ-03": 8.75,
+    "SEQ-04": 0.28,
+    "SEQ-06": 13.79,
+    "SEQ-05": 0.23,
     "TOPO-01": 0.0,
-    "TOPO-02": 0.17,
-    "TOPO-04": 2.34,
-    "TOPO-03": 0.05,
+    "TOPO-02": 0.22,
+    "TOPO-04": 3.09,
+    "TOPO-03": 0.08,
     "WIRE-01": 0.04,
-    "WIRE-02": 0.39,
+    "WIRE-02": 0.47,
     "WIRE-03": 0.0,
-    "WIRE-04": 0.06
+    "WIRE-04": 0.08
   }
 }

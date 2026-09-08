@@ -39,13 +39,15 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from build123d import Axis, Part, Vector
+from build123d import Axis, Part, Pos, Vector  # noqa: F401  (Vector 供 checks 直接用)
 
 from .params import Config
 
 __all__ = [
     "TraceResult", "virtual_camera", "mirror_hit_point", "trace_dial_point",
-    "sample_dial_points", "sensor_uv", "protected_cone", "led_cone",
+    "sample_dial_points", "ocr_critical_points", "sensor_uv",
+    "protected_cone", "led_cone", "useful_led_cone",
+    "led_tips", "led_emitter_points", "specular_separation_deg",
     "roi_half_angle_deg", "vfov_deg",
 ]
 
@@ -195,6 +197,76 @@ def trace_dial_point(cfg: Config, blockers: dict[str, Part], mirror: Part,
     return TraceResult(p, m, True)
 
 
+def led_tips(cfg: Config) -> list[Vector]:
+    """两颗灯珠的顶点（左右各一）。"""
+    lg = cfg.light
+    return [Vector(lg.pos_r, 0.0, lg.pos_z), Vector(-lg.pos_r, 0.0, lg.pos_z)]
+
+
+def led_emitter_points(cfg: Config, side: int = +1, n_ring: int = 8) -> list[Vector]:
+    """
+    灯珠**发光面**上的采样点：穹顶顶点 + 穹顶中部一圈。
+
+    为什么不能只取顶点
+    ------------------
+    草帽灯是个 Ø5 的穹顶，不是点光源。穹顶**上半部分**发出的光线角度更平，
+    它们的路径和顶点发出的完全不同。
+
+    实测代价：支承片底边和灯珠顶点等高时，按点光源追踪 **0% 被挡**，
+    按真实穹顶取 9 个发光点追踪 **46% 被挡** —— 穹顶上半边整个被遮死。
+    这个差别是"检查够不够格"的问题，不是"设计对不对"的问题：
+    点光源模型下，无论设计怎么错都查不出来。
+    """
+    from .layout import led_frame
+
+    lg = cfg.light
+    loc = led_frame(cfg)
+    mirror = -1 if side < 0 else 1
+
+    def local(x, y, z) -> Vector:
+        p = (loc * Pos(x, y, z)).position
+        return Vector(mirror * p.X, p.Y, p.Z)
+
+    pts = [local(0.0, 0.0, lg.body_h)]
+    r = lg.body_d / 2 - 0.6
+    for k in range(n_ring):
+        a = 2 * math.pi * k / n_ring
+        pts.append(local(r * math.cos(a), r * math.sin(a), lg.body_h - 1.6))
+    return pts
+
+
+def useful_led_cone(cfg: Config) -> "Part":
+    """
+    LED 的**有用光束**：从灯珠发光面到可视表盘圆盘之间的斜锥。
+
+    比"绕灯轴的正圆锥"准确得多：真正要保护的不是某个角度范围，
+    而是"能打到表盘上的那一束光"。任何结构件进入它 = 挡掉了本该照到表盘的光。
+
+    锥的小端取在**穹顶最宽处**（垂直于灯轴的那个圆），不是灯珠顶点。
+    取顶点的话，锥体整个落在顶点高度以下，就再也看不见"穹顶上半边被挡"
+    这种情况了 —— 实测过：同一个设计，小端取顶点时体积法报 0，
+    取穹顶最宽处才报得出来。
+    """
+    from build123d import Circle, Plane, Sphere, loft
+
+    from .geometry import mirror_x
+    from .layout import led_frame
+
+    lg = cfg.light
+    loc = led_frame(cfg)
+    dial = Plane.XY * Circle(cfg.meter.dial_r)
+    # 穹顶最宽处：LED 局部坐标 z = body_h − 1.6，圆面垂直于灯轴
+    dome = Plane(loc * Pos(0, 0, lg.body_h - 1.6)) * Circle(lg.body_d / 2)
+    cone = loft([dial, dome], ruled=True)
+    # 挖掉灯珠自身占的那点体积，免得灯座根部被误判成"遮挡"。
+    # ★ 半径只能刚好包住灯珠（body_d/2 + 0.5），不能按灯座外径挖 ——
+    #   按 boss_d/2+1 = Ø14 挖的时候，正好把"支承片挡住穹顶上半边"的
+    #   那块证据一起挖没了，这条检查于是永远为真。
+    #   **排除区域开得太大，等于把检查关掉。**
+    cone -= Pos(lg.pos_r, 0, lg.pos_z) * Sphere(lg.body_d / 2 + 0.5)
+    return mirror_x(cone)
+
+
 def sample_dial_points(cfg: Config, n_rim: int = 24, n_ring: int = 2
                        ) -> list[tuple[float, float, str]]:
     """
@@ -215,14 +287,56 @@ def sample_dial_points(cfg: Config, n_rim: int = 24, n_ring: int = 2
         for i in range(n_rim):
             a = 2 * math.pi * i / n_rim
             pts.append((rr * math.cos(a), rr * math.sin(a), tag))
-    # 字轮窗口（表盘中上部的一条横带）
-    for dx in (-12, -6, 0, 6, 12):
-        pts.append((dx, 8.0, "字轮窗"))
-    # 四个指针盘（×0.1 / ×0.01 / ×0.001 / ×0.0001），按常见布局取四角
-    for dx, dy, nm in ((-14, -8, "指针×0.1"), (14, -8, "指针×0.01"),
-                       (-14, -18, "指针×0.001"), (14, -18, "指针×0.0001")):
-        pts.append((dx, dy, nm))
+    # 字轮窗口（位置来自 params.Meter.digit_window，不在这里写死）
+    x0, x1, y0, y1 = cfg.meter.digit_window
+    for i in range(5):
+        pts.append((x0 + (x1 - x0) * i / 4, (y0 + y1) / 2, "字轮窗"))
+    # 四个指针盘
+    for i, (dx, dy) in enumerate(cfg.meter.pointer_positions):
+        pts.append((dx, dy, f"指针{i + 1}"))
     return pts
+
+
+def ocr_critical_points(cfg: Config) -> list[tuple[float, float, str]]:
+    """
+    **OCR 真正要读的那几处**：字轮窗 + 四个指针盘。
+
+    眩光判据只看这里 —— 表盘最外缘（蓝圈、刻度）有没有反光不影响读数，
+    把它算进去只会得到一个吓人但没意义的数字。
+    """
+    x0, x1, y0, y1 = cfg.meter.digit_window
+    out = []
+    for i in range(5):
+        for j in range(2):
+            out.append((x0 + (x1 - x0) * i / 4, y0 + (y1 - y0) * j, "字轮窗"))
+    for i, (dx, dy) in enumerate(cfg.meter.pointer_positions):
+        out.append((dx, dy, f"指针{i + 1}"))
+    return out
+
+
+def specular_separation_deg(cfg: Config, point: Vector, tip: Vector) -> float:
+    """
+    某个表盘点上，LED 的**镜面反射方向**与**采集方向**的夹角。
+
+    判据式子（写出来接受检查）::
+
+        d = normalize(P − T)              入射方向
+        n = (0, 0, 1)                     表盘法线
+        R = d − 2(d·n)n                   镜面反射方向
+        c = normalize(V − P)              该点指向虚拟相机的方向
+        分离角 = ∠(R, c)
+
+    夹角越小，反射瓣越可能直接打进镜头 → 字轮上出现高光。
+
+    ⚠ 这里把表盘玻璃当成**平面**。实际是弧面 + 液封介质，
+    反射瓣会展宽，所以真实的风险比这个数字算出来的更大一些。
+    结论要留余量，不要卡着阈值用。
+    """
+    n = Vector(0, 0, 1)
+    d = (point - tip).normalized()
+    refl = d - n * (2 * d.dot(n))
+    cam = (virtual_camera(cfg) - point).normalized()
+    return math.degrees(math.acos(max(-1.0, min(1.0, refl.dot(cam)))))
 
 
 # =============================================================================
