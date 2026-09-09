@@ -85,6 +85,7 @@ def build_collar(cfg: Config) -> Part:
     set_hole = Rot(0, 0, c.collar_set_ang) * cyl_y(
         0, c.collar_or - 12, c.collar_or + 2, (z0 + z1) / 2, f.set_screw_d)
     solid -= mirror_x(set_hole)                                          # 备用顶紧孔
+    solid -= build_nut_pockets(cfg)                                      # 六角螺母沉槽
 
     # ---- 内棱 ----
     # 落在剖分缝里的棱会被切成孤立薄片（自检 TOPO-01 立刻报 solids>1）。
@@ -99,6 +100,38 @@ def build_collar(cfg: Config) -> Part:
             continue
         ribs += Rot(0, 0, ang) * cyl_z(rib_r, 0, z0, z1, c.collar_rib_d)
     return solid + ribs
+
+
+def build_nut_pockets(cfg: Config) -> Part:
+    """
+    夹紧螺栓的**六角螺母沉槽**（去料），只开在 −X 那只夹紧耳的外表面。
+
+    没有沉槽的话，拧螺栓时必须一手扳手按住螺母、一手拧螺丝 —— 而现场是
+    站在楼梯上、单手扶着整机。沉槽让螺母被"抓死"，变成单手作业。
+
+    两个细节都不是随手定的：
+
+    * **只开一侧。** 螺栓头在 +X 耳、螺母在 −X 耳，左右不对称是有意的。
+      所以这个减法体**不能**走 mirror_x。
+    * **六边形要有一个顶点朝全局 +Y。** 推荐打印姿态是主体绕 X 轴 +90°，
+      全局 +Y 就是打印时的"上"。顶点朝上 → 孔顶自然收成尖角，零支撑；
+      平边朝上的话孔顶是一条 7.2mm 的水平桥，会塌。
+    """
+    from build123d import Plane, RegularPolygon, extrude
+
+    c, f, m = cfg.case, cfg.fast, cfg.mfg
+    af = f.m4_nut_af + 2 * f.nut_pocket_clr          # 对边 7.4
+    circum = af / math.sqrt(3.0)                     # 外接圆半径
+    depth = f.m4_nut_thick + 0.4
+    x_out = -(c.collar_slit_w / 2 + c.collar_ear_w)  # −X 耳的外表面
+
+    pockets = Part()
+    for bz in c.collar_bolt_z:
+        # Plane.YZ 的局部 x→全局 Y、局部 y→全局 Z，所以 rotation=0 时
+        # 第一个顶点落在局部 +x = 全局 +Y ✓（= 打印姿态的正上方）
+        sk = Plane.YZ.offset(x_out - m.eps) * Pos(c.collar_or + 8, bz) *             RegularPolygon(circum, 6, rotation=0)
+        pockets += extrude(sk, amount=depth + m.eps)
+    return pockets
 
 
 # =============================================================================
@@ -315,22 +348,26 @@ def build_pod_cuts(cfg: Config) -> Part:
                   cfg.optics.mirror_z, c.polarizer_d)
 
     # ---- 摄像头方腔（带入口导向倒角，盲装时好对准）----
+    #  方腔在 Z 上要留出板卡的**抬升行程**（见 board_lift）：板卡是抬高
+    #  board_lift 水平推入、再落下 board_lift 就位的，模组也跟着上下走。
     cam = bx(-p.cam_half_x, p.cam_half_x, p.wall_inner_y - eps, p.cam_pocket_y1,
-             p.cam_z0, p.cam_z1)
+             p.cam_z0, p.cam_z1 + c.board_lift)
     lead = c.cam_pocket_lead_in
     cam += bx(-(p.cam_half_x + lead), p.cam_half_x + lead,
               p.cam_pocket_y1 - lead, p.cam_pocket_y1 + eps,
-              p.cam_z0 - lead, p.cam_z1 + lead)
+              p.cam_z0 - lead, p.cam_z1 + c.board_lift)
     cuts += cam
 
     # ---- 两级让位槽 ----
     #  深级：SD 卡座 + 摄像头排线（伸出 PCB 约 2.98mm，集中在中间）
     cuts += bx(-p.relief_half_x, p.relief_half_x, p.relief_y0, p.pcb_face_y + eps,
-               p.relief_z0, p.relief_z1)
+               p.relief_z0, p.relief_z1 + c.board_lift)
     #  浅级：一圈贴片元件和引脚焊尾（只伸出 2.14mm，但一直铺到 X±13.4）
     #  它把止挡面挤到了 PCB 下缘那条干净的带上 —— 见 layout.pod_layout 的说明
+    #  两级让位槽的上边界都要加上 board_lift：板卡抬高推入时，
+    #  SD 卡座和排线也跟着抬高，让位槽得容得下那段行程。
     cuts += bx(-p.smd_half_x, p.smd_half_x, p.smd_relief_y0, p.pcb_face_y + eps,
-               p.smd_z0, p.smd_z1)
+               p.smd_z0, p.smd_z1 + c.board_lift)
 
     # ---- 主型腔：从 PCB 前表面一直通到吊舱后表面 ----
     #   为什么必须贯通：推荐打印姿态是主体绕 X 轴 −90°（+Y 朝上），
@@ -375,15 +412,37 @@ def build_pod_inner_features(cfg: Config) -> Part:
     feat = Part()
 
     # ---- 板下缘承台 ----
-    shelf_x = p.pcb_half_x - 1.0
+    #  半宽取 pcb_half_x − 0.5，是为了和压唇（内缘 pcb_half_x − board_lip_overlap）
+    #  有 0.5mm 的**体积重叠**。两者刚好相切的话会留下退化边，
+    #  STEP 照样合法但 3MF 网格化直接失败（自检 TOPO-04 抓到过一次）。
+    shelf_x = p.pcb_half_x - 0.5
     feat += bx(-shelf_x, shelf_x, p.pcb_face_y, p.pcb_face_y + c.board_shelf_len,
                p.pcb_z0 - c.board_shelf_t, p.pcb_z0)
 
-    # ---- 侧向导轨（PCB 边导向，同时是插入时的导向面）----
+    # ---- 侧向导轨 + **下缘后压唇**（板卡的 +Y 固定）----
+    #  没有它的时候，板卡只有一个前止挡和一个底部承台，整机稍微一斜就掉出来。
+    #
+    #  为什么压唇只做在**下缘**：板卡是抬高 board_lift 水平推入、再落下就位的。
+    #  压唇在 PCB 的 Z 行程内任何位置都会挡住水平推入 —— 只有落在
+    #  「抬高后 PCB 下缘之下」的那一小段（Z pcb_z0 ~ pcb_z0+board_lift）才不挡。
+    #  落下之后，这段压唇正好扣住 PCB 的下缘后角。
+    #
+    #  为什么不做弹性卡扣：卡钩必须落在 PCB 后表面（Y=89.67）之后，
+    #  而唯一能生根的实体是前止挡台阶（Y=88.07）—— 相距只有 1.6mm，
+    #  做不出有柔度的悬臂。**几何上不成立的方案不要硬凑**，换装配动作才是解。
     rib_in = p.pcb_half_x + c.board_rib_clear
     rib_out = rib_in + c.board_rib_t
-    rib = bx(rib_in, rib_out, p.pcb_face_y, p.pcb_face_y + c.board_rib_len,
-             p.pcb_z0 + 1, p.pcb_z1 - 1)
+    lip_y0 = p.pcb_back_y + c.board_slot_clr
+    lip_y1 = lip_y0 + c.board_lip_t
+    rib = bx(rib_in, rib_out, p.pcb_face_y, lip_y1 + 0.5,
+             p.pcb_z0, p.pcb_z1 - 1)
+    #  压唇从导轨内伸出来盖住 PCB 下缘后角；内伸量约 1mm，
+    #  打印姿态下是 1mm 的水平外伸，自支撑。
+    #  X 一直画到 rib_out（和导轨**整段重叠**，不是擦边 0.01mm）——
+    #  两个加法体只在一个面上相切同样会留退化边。
+    lip_in = p.pcb_half_x - c.board_lip_overlap
+    rib += bx(lip_in, rib_out, lip_y0, lip_y1,
+              p.pcb_z0, p.pcb_z0 + c.board_lift - 0.3)
     feat += mirror_x(rib)
 
     # ---- 天线定位框（贴 +X 内壁，馈点朝上）----

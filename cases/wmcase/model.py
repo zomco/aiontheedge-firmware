@@ -89,6 +89,11 @@ class Design:
         return self.meter_ref.shape
 
     @cached_property
+    def blue_cover(self) -> Part:
+        """蓝色盖板，摆在**停放**姿态（朝墙侧翻开 cover_open_deg）。"""
+        return refs.blue_cover(self.cfg)
+
+    @cached_property
     def foam(self) -> Part:
         return build_foam_pad(self.cfg)
 
@@ -124,6 +129,7 @@ class Design:
             Part(self.leds.wrapped, label="leds"),
             Part(self.foam.wrapped, label="eva_foam"),
             Part(self.meter.wrapped, label="meter_mock"),
+            Part(self.blue_cover.wrapped, label="blue_cover_parked"),
         ]
         if include_illustrative:
             ill = refs.meter_illustrative(self.cfg)
@@ -164,6 +170,8 @@ class Design:
 
         children: list[Part] = [
             _Part((moved(self.meter, "meter")).wrapped, label="00_meter_mock"),
+            # 蓝盖跟着水表不动 —— 它是装配**前提**（第 0 步就要翻开），不是被装的件
+            _Part(moved(self.blue_cover, "meter").wrapped, label="00_blue_cover_parked"),
             _Part(moved(self.body, "body").wrapped, label="01_body"),
         ]
 

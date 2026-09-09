@@ -172,11 +172,17 @@ def exploded_separated(design):
     worst, pair = 0.0, ""
     for i in range(len(parts)):
         for j in range(i + 1, len(parts)):
+            a, b = parts[i][0], parts[j][0]
+            # ``00_*`` 是水表**自身**的零件（表体 + 蓝环 + 蓝盖），它们靠铰链
+            # 连在一起，本来就该重叠；爆炸图要拉开的是**我们装上去**的件。
+            # 但 00_* 和 01_.. 之间仍然要查 —— 主体必须爆炸到越过翻开的蓝盖。
+            if a.startswith("00_") and b.startswith("00_"):
+                continue
             v = inter_vol(parts[i][1], parts[j][1])
             if v > worst:
-                worst, pair = v, f"{parts[i][0]} ∩ {parts[j][0]}"
-    return worst < 1.0, (f"{len(parts)} 个件两两求交，最大重叠 {fmt(worst)}"
-                         + (f"（{pair}）" if pair else ""))
+                worst, pair = v, f"{a} ∩ {b}"
+    return worst < 1.0, (f"{len(parts)} 个件两两求交（水表自身的件互相之间不算），"
+                         f"最大重叠 {fmt(worst)}" + (f"（{pair}）" if pair else ""))
 
 
 @rule("SEQ-05", "SEQ", "夹紧螺栓有徒手操作空间",

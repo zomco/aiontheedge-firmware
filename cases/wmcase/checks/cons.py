@@ -107,6 +107,31 @@ def board_x_guided(design):
     return out
 
 
+@rule("CONS-14", "CONS", "板卡的 +Y 被下缘压唇挡住（不会掉出来）",
+      why="这是人在装配体上直接看出来的问题：板卡装上去只有一个前止挡和一个"
+          "底部承台，整机稍微一斜就掉出来。EVA 泡棉要等滑盖装上才起作用，"
+          "在那之前板卡是完全自由的。"
+          "现在下缘加了后压唇 —— 板卡抬高 board_lift 水平推入、落下就位之后，"
+          "压唇扣住 PCB 下缘后角，**不依赖泡棉、不依赖滑盖**。")
+def board_back_lip(design):
+    v = inter_vol(design.body, Pos(0, 1.5, 0) * design.board)
+    return v > _tol(design), f"板卡后推 1.5mm 产生干涉 {fmt(v)}"
+
+
+@rule("CONS-15", "CONS", "板卡抬高后才推得进去（压唇确实挡住了平推）",
+      why="压唇如果太矮或太靠里，平推也能进 —— 那它同样拦不住板卡掉出来。"
+          "所以要正反两条一起验：抬高后路径畅通、**不抬高则必然被挡**。")
+def board_lift_required(design):
+    lift = design.cfg.case.board_lift
+    lifted = max(inter_vol(design.body, Pos(0, dy, lift) * design.board)
+                 for dy in (26, 12, 6, 2, 0))
+    flat = max(inter_vol(design.body, Pos(0, dy, 0) * design.board)
+               for dy in (6, 3, 2, 1))
+    return lifted < _tol(design) and flat > _tol(design), (
+        f"抬高 {lift:.0f}mm 后路径最大干涉 {fmt(lifted)}；"
+        f"不抬高时最大干涉 {fmt(flat)}（必须 > 容差）")
+
+
 @rule("CONS-09", "CONS", "板卡的 −Z 落在承台上")
 def board_shelf(design):
     v = inter_vol(design.body, Pos(0, 0, -1.5) * design.board)

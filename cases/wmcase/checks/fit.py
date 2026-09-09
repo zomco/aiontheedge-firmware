@@ -178,20 +178,41 @@ def collar_clears_body(design):
     return v < _tol(design), fmt(v)
 
 
-@rule("FIT-14", "FIT", "蓝盖翻开停放的空间不被占用", severity=WARN,
-      why="光学读表要求蓝盖**常开**并朝墙侧停放。它停在哪、有多高，"
-          "目前全是照片目测（params.Meter.cover_park_y / cover_open_top）。"
-          "而镜片托板为了接住表盘外缘的光，必须一直伸到 y≈−31，两者非常接近。"
-          "结论只和那两个估算值一样可信，所以是 WARN 不是 ERROR —— "
-          "写成 ERROR 会给人虚假的安全感。**这是当前风险最高的一条未验证假设。**")
-def blue_cover_space(design):
-    m = design.cfg.meter
-    y0, y1 = m.cover_park_y
-    park = bx(-m.bezel_od / 2 - 2, m.bezel_od / 2 + 2, y0, y1,
-              m.bezel_top_z, m.bezel_top_z + m.cover_open_top)
-    v_body = inter_vol(design.body, park)
-    v_holder = inter_vol(design.mirror_holder, park)
-    return (v_body + v_holder) < 20.0, (
-        f"主体重叠 {fmt(v_body)}，托板重叠 {fmt(v_holder)}；"
-        f"停放带 Y[{y0},{y1}] Z[{m.bezel_top_z},{m.bezel_top_z + m.cover_open_top}] "
-        f"（**估算值**，需实测蓝盖停放位置）")
+@rule("FIT-14", "FIT", "蓝盖朝墙侧停放时不卡住任何零件",
+      why="光学读表要求蓝盖**常开**并朝墙侧停放 —— 朝房间侧翻会横在相机和 45° 镜"
+          "之间，朝左右翻会挡 LED，只有墙侧是空的。但墙侧正是镜片托板伸过去接"
+          "表盘外缘光线的地方，两者必然争地盘。"
+          "判据**扫一段停放角区间**而不是单一角度：盖板靠重力/摩擦停住，逐台有差异。"
+          "报告里会给出『最小可行停放角』—— 那是现场唯一需要确认的数字。"
+          "★ 这一条直接决定了镜片长度：70mm 的镜片要求盖板翻到 105° 才不碰，"
+          "缩到 62mm 才容得下 90°。**外购件尺寸被一个活动件的姿态反向约束**，"
+          "这种耦合不写进检查就只能等试装才发现。")
+def blue_cover_park(design):
+    from .. import refs
+
+    cfg = design.cfg
+    lo, hi = cfg.meter.cover_park_range_deg
+    parts = {"主体": design.body, "镜片托板": design.mirror_holder,
+             "镜片": design.mirror_glass}
+    worst_v, worst_ang, worst_who = 0.0, None, ""
+    min_ok = None
+    for ang in range(int(lo), int(hi) + 1, 1):
+        cover = refs.blue_cover(cfg, float(ang))
+        tot = 0.0
+        who = ""
+        for name, part in parts.items():
+            v = inter_vol(cover, part)
+            if v > 0.5:
+                tot += v
+                who = name
+        if tot <= 0.5 and min_ok is None:
+            min_ok = ang
+        if tot > worst_v:
+            worst_v, worst_ang, worst_who = tot, ang, who
+    ok = worst_v <= 0.5
+    detail = (f"停放角扫 {lo:.0f}°~{hi:.0f}°：最小可行角 "
+              f"{min_ok if min_ok is not None else '无'}°"
+              f"（实测最大打开角 {cfg.meter.cover_open_deg:.0f}°）")
+    if worst_v > 0.5:
+        detail += f"；{worst_ang}° 时与{worst_who}干涉 {fmt(worst_v)}"
+    return ok, detail

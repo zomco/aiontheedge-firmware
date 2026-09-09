@@ -259,6 +259,9 @@ def meter_mock(cfg: Config) -> RefModel:
     # 银圈底部凸台
     boss = cyl_z(0, 0, m.bezel_bottom_z, m.boss_top_z, m.bezel_od + 2 * m.boss_w)
     boss -= cyl_z(0, 0, m.bezel_bottom_z - 1, m.boss_top_z + 1, m.bezel_od)
+    # 蓝色固定环：坐在表盘玻璃面上，高 5mm。它会在表盘外缘投出一圈阴影，
+    # 也是蓝盖铰链的落脚点 —— 必须建进判定用的模型里。
+    ring = ring + blue_ring(cfg)
     # 表头壳体：从银圈底面接到中段铸体
     housing_bot = m.pipe_axis_z + m.body_casting_d / 2 - 8.0
     housing = cyl_z(0, 0, housing_bot, m.bezel_bottom_z, m.bezel_od)
@@ -268,6 +271,60 @@ def meter_mock(cfg: Config) -> RefModel:
     stubs = cyl_x(-m.body_len / 2, m.body_len / 2, 0, m.pipe_axis_z, m.pipe_stub_d)
     return RefModel(name="meter", shape=ring + boss + housing + casting + stubs,
                     trust=MOCK, source=f"{m.model} 卡尺实测 + 样本外形表")
+
+
+def blue_ring(cfg: Config) -> Part:
+    """
+    表盘上的**蓝色固定环**：内径 = 可视表盘直径，外径 = 内径 + 2×壁厚，
+    坐在玻璃面上高 ``ring_h``。
+
+    它有两个作用，都会影响设计：
+
+    * **挡光**：LED 打向对侧表盘的掠射光要越过它，环会在同侧外缘投下一圈阴影
+      （靠对置的另一颗灯补上，自检 LED-05 逐点验证）；
+    * **铰链基座**：蓝盖绕它的外缘翻转。
+    """
+    m = cfg.meter
+    ring = cyl_z(0, 0, 0.0, m.ring_h, m.ring_od)
+    ring -= cyl_z(0, 0, -1.0, m.ring_h + 1.0, m.dial_visible_d)
+    return ring
+
+
+def blue_cover(cfg: Config, angle_deg: float | None = None) -> Part:
+    """
+    表盘上的**蓝色盖板**，绕铰链翻开 ``angle_deg``（默认取停放角度）。
+
+    几何约定
+    --------
+    * 铰链轴沿 **X**，位于固定环外缘的**墙侧**：``(y, z) = (−ring_od/2, ring_h)``
+    * 盖板是一块圆片，**铰链在它的边缘上**（所以闭合时正好盖住整个环）
+    * ``angle_deg`` 是盖板平面与表盘面的夹角；0° = 闭合，100° = 实测的停放角
+
+    为什么必须朝墙侧（−Y）停放
+    --------------------------
+    朝房间侧（+Y）翻开的话，盖板会横在相机和 45° 镜之间；
+    朝左右翻开会挡住 LED。只有墙侧是空的 —— 但那一侧正是镜片托板伸过去的地方，
+    所以两者必然争地盘，`FIT-14` 就是盯这件事的。
+
+    旋转映射（按 DESIGN_NOTES §7.1 的规矩写全并验算）::
+
+        绕 X 轴转 θ：(y, z) → (y·cosθ − z·sinθ,  y·sinθ + z·cosθ)，相对铰链
+        闭合时圆心相对铰链在 (0, +cover_r, +cover_t/2)
+        θ=100° 代入 → 相对 (0, −5.47−1.48, +31.02−0.26) = (0, −6.95, +30.76)
+        绝对圆心 (0, −37.85, +35.76)，盖板远端约 (0, −41.8, +67.0)  ✓ 朝墙侧仰起
+    """
+    m = cfg.meter
+    theta = m.cover_open_deg if angle_deg is None else angle_deg
+    hy, hz = m.cover_hinge_y, m.cover_hinge_z
+    closed = Pos(0, hy + m.cover_r, hz + m.cover_t / 2) * Cylinder(m.cover_r, m.cover_t)
+    return Pos(0, hy, hz) * Rot(theta, 0, 0) * Pos(0, -hy, -hz) * closed
+
+
+def blue_cover_ref(cfg: Config) -> RefModel:
+    m = cfg.meter
+    return RefModel(name="blue_cover", shape=blue_cover(cfg), trust=MOCK,
+                    source=f"蓝色盖板 R{m.cover_r}×{m.cover_t}，停放角 {m.cover_open_deg:.0f}°"
+                           f"（半径/厚度仍是照片目测）")
 
 
 def meter_illustrative(cfg: Config) -> RefModel | None:

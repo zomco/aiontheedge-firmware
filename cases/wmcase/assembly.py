@@ -66,6 +66,15 @@ def install_sequence(cfg: Config) -> list[Step]:
     c = cfg.case
     lift = c.collar_z1 - c.collar_z0 + 2.0
     return [
+        Step(0, "把水表的蓝色盖板向**墙侧**翻到底并确认它不回弹", "-",
+             present=("meter",), check_path=False, tool="徒手",
+             note=f"光学读表要求蓝盖常开。它只能朝墙侧（−Y）停放 —— 朝房间侧翻会"
+                  f"横在相机和 45° 镜之间，朝左右翻会挡 LED。"
+                  f"★ **必须翻到 ≥90°**（实测最大约 {cfg.meter.cover_open_deg:.0f}°）。"
+                  f"翻不到位的话镜片托板会被它卡住装不下去 —— 这是自检 FIT-14 "
+                  f"算出来的最小可行角，现场唯一需要确认的数字就是它。",
+             pokayoke="翻不到位时托板明显放不平，装的人立刻会发现 —— "
+                      "这算是一处'被动防呆'，但不能替代确认动作。"),
         Step(1, "主体套上银圈，压到夹持带下沿到位", "body",
              path=((0, 0, lift), (0, 0, lift / 2), (0, 0, 0)),
              present=("meter",), ignore=("meter",),
@@ -73,7 +82,9 @@ def install_sequence(cfg: Config) -> list[Step]:
                   f"{cfg.meter.bezel_od / 2 - (cfg.meter.bezel_od / 2 - c.collar_rib_interf):.2f}mm，"
                   f"需要稍用力；套不进去先检查银圈上有没有漆瘤。",
              pokayoke="剖分缝和夹紧耳都在 +Y 侧（面向房间），装反了螺栓够不着。",
-             explode_dir=(0, 0, 1), explode_mm=55.0, explode_on_body=False),
+             # 爆炸位移要越过**翻开的蓝盖**（顶端约 z=67），否则爆炸图里
+             # 主体的抱箍会穿过蓝盖 —— 自检 SEQ-06 会报。
+             explode_dir=(0, 0, 1), explode_mm=82.0, explode_on_body=False),
         Step(2, "拧紧两颗 M4 蝶形螺栓", "-", tool="徒手（蝶形螺丝）",
              present=("meter", "body"), check_path=False,
              note="上下两颗交替拧，各拧 2~3 圈轮换，避免夹持带张成 V 形。"
@@ -93,12 +104,17 @@ def install_sequence(cfg: Config) -> list[Step]:
         Step(6, "把 FPC 天线贴进 +X 内壁的定位框，馈线接 IPEX 座", "-",
              present=("meter", "body"), check_path=False,
              note="馈点朝上，尾线沿内壁走到板卡位置。"),
-        Step(7, "从吊舱后方推入 ESP32-S3-CAM", "board",
-             path=((0, 26, 0), (0, 14, 0), (0, 6, 0), (0, 2, 0), (0, 0, 0)),
+        Step(7, f"ESP32-S3-CAM：抬高 {c.board_lift:.0f}mm 水平推入，再落下 {c.board_lift:.0f}mm 就位",
+             "board",
+             path=((0, 26, c.board_lift), (0, 14, c.board_lift), (0, 6, c.board_lift),
+                   (0, 2, c.board_lift), (0, 0, c.board_lift),
+                   (0, 0, c.board_lift / 2), (0, 0, 0)),
              present=("meter", "body"),
              tool="徒手",
-             note="板下缘先落在承台上，两侧沿导轨往前推；最后 6mm 时"
-                  "摄像头模组会自己被方腔的导向倒角引进去。"
+             note=f"**两段动作，顺序不能反**：先把板卡抬高约 {c.board_lift:.0f}mm 从后方水平"
+                  f"推到底（这时板卡整个在下缘压唇之上），再松手让它落下 "
+                  f"{c.board_lift:.0f}mm —— 落下后压唇扣住 PCB 下缘后角，板卡就取不出来了。"
+                  "推到最后 6mm 时摄像头模组会被方腔的导向倒角自己引进去。"
                   "★ SD 卡（如果还用）必须**在这一步之前**插好，装上以后够不着。",
              pokayoke="★ 前腔在 Z 方向不对称（SD 卡座偏上），板子上下颠倒或"
                       "前后调头都进不去（自检 POKA-04/05）。",

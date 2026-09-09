@@ -1,18 +1,18 @@
 {
-  "generated": "2026-09-09T01:29:50",
+  "generated": "2026-09-09T21:30:07",
   "board": {
     "source": "esp32s3cam-2.step",
     "trust": "authoritative"
   },
   "summary": {
-    "total": 121,
+    "total": 123,
     "blocking": 0,
-    "warnings": 2,
+    "warnings": 1,
     "passed": true
   },
   "volumes_cm3": {
-    "body": 128.64,
-    "mirror_holder": 28.28,
+    "body": 127.82,
+    "mirror_holder": 26.72,
     "slide_cover": 7.67
   },
   "results": [
@@ -70,7 +70,7 @@
       "title": "body 体积在合理区间",
       "passed": true,
       "severity": "error",
-      "detail": "128.6 cm³（期望 60.0~220.0）"
+      "detail": "127.8 cm³（期望 60.0~220.0）"
     },
     {
       "id": "TOPO-03",
@@ -78,7 +78,7 @@
       "title": "mirror_holder 体积在合理区间",
       "passed": true,
       "severity": "error",
-      "detail": "28.3 cm³（期望 10.0~60.0）"
+      "detail": "26.7 cm³（期望 10.0~60.0）"
     },
     {
       "id": "TOPO-03",
@@ -94,7 +94,7 @@
       "title": "body 可网格化为 3MF",
       "passed": true,
       "severity": "error",
-      "detail": "三角面 17230 个"
+      "detail": "三角面 17318 个"
     },
     {
       "id": "TOPO-04",
@@ -102,7 +102,7 @@
       "title": "mirror_holder 可网格化为 3MF",
       "passed": true,
       "severity": "error",
-      "detail": "三角面 15098 个"
+      "detail": "三角面 15186 个"
     },
     {
       "id": "TOPO-04",
@@ -219,10 +219,10 @@
     {
       "id": "FIT-14",
       "category": "FIT",
-      "title": "蓝盖翻开停放的空间不被占用",
-      "passed": false,
-      "severity": "warn",
-      "detail": "主体重叠 0.00 mm³，托板重叠 87.05 mm³；停放带 Y[-46.0,-33.0] Z[7.0,67.0] （**估算值**，需实测蓝盖停放位置）"
+      "title": "蓝盖朝墙侧停放时不卡住任何零件",
+      "passed": true,
+      "severity": "error",
+      "detail": "停放角扫 90°~105°：最小可行角 90°（实测最大打开角 100°）"
     },
     {
       "id": "CONS-01",
@@ -270,7 +270,7 @@
       "title": "镜片被 T 型槽唇口兜住（镜面朝下不会掉）",
       "passed": true,
       "severity": "error",
-      "detail": "镜片外推 1.2mm 产生干涉 215.60 mm³"
+      "detail": "镜片外推 1.2mm 产生干涉 190.96 mm³"
     },
     {
       "id": "CONS-04",
@@ -318,7 +318,7 @@
       "title": "板卡的 −Y 被前腔台阶止住",
       "passed": true,
       "severity": "error",
-      "detail": "板卡前推 1mm 产生干涉 267.49 mm³"
+      "detail": "板卡前推 1mm 产生干涉 264.11 mm³"
     },
     {
       "id": "CONS-08",
@@ -326,7 +326,7 @@
       "title": "板卡 +X 向平移 1.2mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "43.09 mm³"
+      "detail": "43.68 mm³"
     },
     {
       "id": "CONS-08",
@@ -334,7 +334,7 @@
       "title": "板卡 −X 向平移 1.2mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "50.45 mm³"
+      "detail": "51.03 mm³"
     },
     {
       "id": "CONS-09",
@@ -342,7 +342,7 @@
       "title": "板卡的 −Z 落在承台上",
       "passed": true,
       "severity": "error",
-      "detail": "板卡下沉 1.5mm 产生干涉 59.18 mm³"
+      "detail": "板卡下沉 1.5mm 产生干涉 60.63 mm³"
     },
     {
       "id": "CONS-10",
@@ -385,6 +385,22 @@
       "detail": "atan((42.5 − 32.0) / 12.0) = 41.2° ≤ 45.0°"
     },
     {
+      "id": "CONS-14",
+      "category": "CONS",
+      "title": "板卡的 +Y 被下缘压唇挡住（不会掉出来）",
+      "passed": true,
+      "severity": "error",
+      "detail": "板卡后推 1.5mm 产生干涉 5.83 mm³"
+    },
+    {
+      "id": "CONS-15",
+      "category": "CONS",
+      "title": "板卡抬高后才推得进去（压唇确实挡住了平推）",
+      "passed": true,
+      "severity": "error",
+      "detail": "抬高 5mm 后路径最大干涉 0.00 mm³；不抬高时最大干涉 8.97 mm³（必须 > 容差）"
+    },
+    {
       "id": "SEQ-01",
       "category": "SEQ",
       "title": "[装配1] 主体套上银圈，压到夹持带下沿到位",
@@ -395,7 +411,7 @@
     {
       "id": "SEQ-01",
       "category": "SEQ",
-      "title": "[装配7] 从吊舱后方推入 ESP32-S3-CAM",
+      "title": "[装配7] ESP32-S3-CAM：抬高 5mm 水平推入，再落下 5mm 就位",
       "passed": true,
       "severity": "error",
       "detail": "路径最大干涉 0.00 mm³"
@@ -446,7 +462,7 @@
       "title": "[装配12] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=74.1 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
     },
     {
       "id": "SEQ-02",
@@ -478,7 +494,7 @@
       "title": "[抄表1] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=74.1 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
     },
     {
       "id": "SEQ-02-CLR",
@@ -486,7 +502,7 @@
       "title": "[抄表2] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=74.1 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
     },
     {
       "id": "SEQ-02-CLR",
@@ -494,7 +510,7 @@
       "title": "[抄表4] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=74.1 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
     },
     {
       "id": "SEQ-03",
@@ -518,7 +534,7 @@
       "title": "[拆卸1] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=74.1 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
     },
     {
       "id": "SEQ-03-CLR",
@@ -558,7 +574,7 @@
       "title": "爆炸图里各零件互不重叠",
       "passed": true,
       "severity": "error",
-      "detail": "8 个件两两求交，最大重叠 0.00 mm³"
+      "detail": "9 个件两两求交（水表自身的件互相之间不算），最大重叠 0.00 mm³"
     },
     {
       "id": "OPT-01",
@@ -574,7 +590,7 @@
       "title": "镜片实际用到的范围",
       "passed": true,
       "severity": "info",
-      "detail": "沿 45° 斜面 55.4mm（采购 70），沿 X 38.1mm（采购 50）；落点 Y∈[-24.1,15.0]"
+      "detail": "沿 45° 斜面 55.4mm（采购 62），沿 X 38.1mm（采购 50）；落点 Y∈[-24.1,15.0]"
     },
     {
       "id": "OPT-02",
@@ -587,10 +603,10 @@
     {
       "id": "OPT-03",
       "category": "OPT",
-      "title": "采购镜片长度够用（含 5mm 余量）",
+      "title": "采购镜片长度够用（含设计余量）",
       "passed": true,
       "severity": "error",
-      "detail": "需 57.0，采购 70"
+      "detail": "光学需 57.01，采购 62，余量 4.99（要求 ≥5.0）"
     },
     {
       "id": "OPT-04",
@@ -758,7 +774,7 @@
       "title": "表盘正上方的最高点低于天花板",
       "passed": true,
       "severity": "error",
-      "detail": "最高点 zmax=66.1（托板）< 天花板 77.0"
+      "detail": "最高点 zmax=64.0（托板）< 天花板 77.0"
     },
     {
       "id": "DIM-06",
@@ -766,7 +782,7 @@
       "title": "镜片托板提起 8mm 后仍不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "托板最高 66.1 + 提起 8.0 = 74.1 < 77.0"
+      "detail": "托板最高 64.0 + 提起 8.0 = 72.0 < 77.0"
     },
     {
       "id": "DIM-07",
@@ -798,7 +814,7 @@
       "title": "mirror_holder 装得下 256³ 打印空间",
       "passed": true,
       "severity": "error",
-      "detail": "78×68×55mm"
+      "detail": "78×65×50mm"
     },
     {
       "id": "DIM-09",
@@ -814,7 +830,7 @@
       "title": "打印总重与 BOM 估算一致",
       "passed": true,
       "severity": "info",
-      "detail": "三件合计约 209g（body 163g，mirror_holder 36g，slide_cover 10g）"
+      "detail": "三件合计约 206g（body 162g，mirror_holder 34g，slide_cover 10g）"
     },
     {
       "id": "DFAM-01",
@@ -822,7 +838,7 @@
       "title": "body 悬垂面积占比",
       "passed": false,
       "severity": "warn",
-      "detail": "11.83%（7012/59259 mm²，阈值 4%）"
+      "detail": "11.86%（7050/59457 mm²，阈值 4%）"
     },
     {
       "id": "DFAM-01",
@@ -830,7 +846,7 @@
       "title": "mirror_holder 悬垂面积占比",
       "passed": true,
       "severity": "warn",
-      "detail": "1.81%（340/18779 mm²，阈值 4%）"
+      "detail": "1.72%（303/17607 mm²，阈值 4%）"
     },
     {
       "id": "DFAM-01",
@@ -846,7 +862,7 @@
       "title": "body 壁厚采样不低于 0.8mm",
       "passed": true,
       "severity": "warn",
-      "detail": "400 个采样点，最小 1.21mm，低于下限的占 0.0%"
+      "detail": "400 个采样点，最小 0.22mm，低于下限的占 0.5%，最薄处约在 (-8, 57, -10)"
     },
     {
       "id": "DFAM-02",
@@ -854,7 +870,7 @@
       "title": "mirror_holder 壁厚采样不低于 0.8mm",
       "passed": true,
       "severity": "warn",
-      "detail": "400 个采样点，最小 0.62mm，低于下限的占 1.5%，最薄处约在 (24, 4, 46)"
+      "detail": "400 个采样点，最小 0.62mm，低于下限的占 1.5%，最薄处约在 (-24, 4, 45)"
     },
     {
       "id": "DFAM-02",
@@ -870,7 +886,7 @@
       "title": "body 边数统计",
       "passed": true,
       "severity": "info",
-      "detail": "866 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
+      "detail": "934 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
     },
     {
       "id": "DFAM-03",
@@ -878,7 +894,7 @@
       "title": "mirror_holder 边数统计",
       "passed": true,
       "severity": "info",
-      "detail": "978 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
+      "detail": "984 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
     },
     {
       "id": "DFAM-03",
@@ -934,7 +950,7 @@
       "title": "开发板绕光轴转 180° 装不进去",
       "passed": true,
       "severity": "error",
-      "detail": "481.55 mm³"
+      "detail": "462.98 mm³"
     },
     {
       "id": "POKA-05",
@@ -986,84 +1002,86 @@
     }
   ],
   "timings_s": {
-    "CONS-01": 3.28,
-    "CONS-02": 1.54,
-    "CONS-03": 0.22,
-    "CONS-04": 0.32,
-    "CONS-05": 0.25,
-    "CONS-06": 0.12,
-    "CONS-07": 4.31,
-    "CONS-08": 8.21,
-    "CONS-09": 4.14,
+    "CONS-01": 2.64,
+    "CONS-02": 1.22,
+    "CONS-03": 0.15,
+    "CONS-04": 0.24,
+    "CONS-05": 0.16,
+    "CONS-06": 0.08,
+    "CONS-07": 3.74,
+    "CONS-08": 7.09,
+    "CONS-14": 2.93,
+    "CONS-15": 22.11,
+    "CONS-09": 3.1,
     "CONS-10": 0.0,
     "CONS-11": 0.0,
     "CONS-12": 0.0,
     "CONS-13": 0.0,
-    "DFAM-01": 4.77,
-    "DFAM-02": 8.44,
-    "DFAM-03": 0.11,
+    "DFAM-01": 3.59,
+    "DFAM-02": 5.77,
+    "DFAM-03": 0.07,
     "DFAM-04": 0.0,
     "DIM-01": 0.0,
     "DIM-02": 0.0,
     "DIM-03": 0.0,
     "DIM-04": 0.0,
-    "DIM-05": 0.59,
-    "DIM-06": 0.04,
+    "DIM-05": 0.43,
+    "DIM-06": 0.03,
     "DIM-07": 0.0,
     "DIM-08": 0.0,
-    "DIM-09": 0.05,
-    "DIM-10": 0.18,
-    "FIT-01": 0.22,
-    "FIT-02": 0.06,
-    "FIT-03": 0.16,
-    "FIT-04": 0.51,
-    "FIT-05": 1.84,
-    "FIT-06": 2.78,
-    "FIT-07": 1.51,
-    "FIT-08": 0.81,
+    "DIM-09": 0.03,
+    "DIM-10": 0.11,
+    "FIT-01": 0.17,
+    "FIT-02": 0.05,
+    "FIT-03": 0.12,
+    "FIT-04": 0.37,
+    "FIT-05": 1.27,
+    "FIT-06": 2.06,
+    "FIT-07": 1.06,
+    "FIT-08": 0.59,
     "FIT-09": 0.0,
-    "FIT-10": 0.08,
-    "FIT-11": 0.26,
-    "FIT-12": 0.24,
+    "FIT-10": 0.05,
+    "FIT-11": 0.19,
+    "FIT-12": 0.21,
     "FIT-13": 0.01,
-    "FIT-14": 0.26,
-    "LED-01": 14.85,
+    "FIT-14": 1.44,
+    "LED-01": 10.85,
     "LED-02": 0.86,
     "LED-03": 0.0,
     "LED-04": 0.0,
-    "LED-05": 1.64,
+    "LED-05": 1.53,
     "LED-06": 0.0,
-    "LED-07": 0.14,
-    "LED-08": 0.09,
-    "OPT-01": 1.87,
+    "LED-07": 0.09,
+    "LED-08": 0.08,
+    "OPT-01": 1.62,
     "OPT-02": 0.0,
     "OPT-03": 0.0,
-    "OPT-04": 0.12,
-    "OPT-05": 0.42,
+    "OPT-04": 0.09,
+    "OPT-05": 0.27,
     "OPT-06": 0.0,
     "OPT-07": 0.0,
     "OPT-08": 0.0,
     "OPT-09": 0.0,
     "OPT-10": 0.0,
-    "POKA-01": 0.39,
-    "POKA-02": 0.19,
-    "POKA-03": 0.23,
-    "POKA-04": 5.6,
-    "POKA-05": 4.19,
+    "POKA-01": 0.31,
+    "POKA-02": 0.17,
+    "POKA-03": 0.19,
+    "POKA-04": 3.92,
+    "POKA-05": 2.89,
     "POKA-06": 0.0,
-    "SEQ-01": 48.66,
-    "SEQ-02": 24.45,
-    "SEQ-03": 8.75,
-    "SEQ-04": 0.28,
-    "SEQ-06": 13.79,
-    "SEQ-05": 0.23,
+    "SEQ-01": 41.26,
+    "SEQ-02": 18.09,
+    "SEQ-03": 6.26,
+    "SEQ-04": 0.23,
+    "SEQ-06": 10.41,
+    "SEQ-05": 0.2,
     "TOPO-01": 0.0,
-    "TOPO-02": 0.22,
-    "TOPO-04": 3.09,
-    "TOPO-03": 0.08,
-    "WIRE-01": 0.04,
-    "WIRE-02": 0.47,
+    "TOPO-02": 0.17,
+    "TOPO-04": 2.29,
+    "TOPO-03": 0.07,
+    "WIRE-01": 0.05,
+    "WIRE-02": 0.35,
     "WIRE-03": 0.0,
-    "WIRE-04": 0.08
+    "WIRE-04": 0.06
   }
 }

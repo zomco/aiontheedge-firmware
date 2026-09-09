@@ -67,11 +67,16 @@ def aperture(design):
         f"光学需 {need:.1f}（要求余量 ≥4mm）")
 
 
-@rule("OPT-03", "OPT", "采购镜片长度够用（含 5mm 余量）")
+@rule("OPT-03", "OPT", "采购镜片长度够用（含设计余量）",
+      why="余量写成参数而不是硬编码的 5.0：镜长的上限是被**蓝色盖板**卡住的"
+          "（见 FIT-14），余量正好等于阈值，硬编码 + 浮点误差会让这条检查"
+          "在 62.0 vs 62.00000000000001 上翻脸。判据要留 0.05 的数值容差。")
 def mirror_len(design):
     o = design.cfg.optics
-    return o.mirror_l >= o.need_mirror_len + 5.0, \
-        f"需 {o.need_mirror_len:.1f}，采购 {o.mirror_l:.0f}"
+    margin = o.mirror_l - o.need_mirror_len
+    return margin >= o.mirror_len_margin - 0.05, (
+        f"光学需 {o.need_mirror_len:.2f}，采购 {o.mirror_l:.0f}，"
+        f"余量 {margin:.2f}（要求 ≥{o.mirror_len_margin:.1f}）")
 
 
 # =============================================================================
