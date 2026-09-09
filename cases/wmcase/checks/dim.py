@@ -77,6 +77,19 @@ def holder_lift_headroom(design):
         f"托板最高 {zmax:.1f} + 提起 8.0 = {zmax + 8.0:.1f} < {m.ceiling_z:.1f}"
 
 
+@rule("DIM-11", "DIM", "蓝色固定环外径 = 银圈内径（两次独立测量互相印证）",
+      why="这两个数是分别量出来的：银圈内径 61.8 来自表头实测，"
+          "固定环外径 61.8 来自后来补的卡尺照片。它们本该相等 —— 环就是"
+          "填在银圈内孔里的。相等说明两次测量都可信；不相等就说明至少一次量错了，"
+          "而**基于错数据的设计不管做得多漂亮都是白做**。"
+          "顺带还有第三个印证：给出的壁厚 2.65 = (61.8 − 56.5)/2。")
+def ring_matches_bezel(design):
+    m = design.cfg.meter
+    dev = abs(m.ring_od - m.bezel_id)
+    return dev <= 0.3, (f"固定环外径 {m.ring_od} vs 银圈内径 {m.bezel_id}，"
+                        f"偏差 {dev:.2f}mm；推出的壁厚 {m.ring_t:.2f}")
+
+
 @rule("DIM-07", "DIM", "光学基准链自洽",
       why="光程、镜面高度、镜头 Y 三者互相绑定。任何一个被手改而没跟着改"
           "其它两个，光路就会静默地偏掉。")
