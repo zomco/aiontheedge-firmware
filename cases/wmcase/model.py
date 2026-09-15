@@ -151,8 +151,11 @@ class Design:
             Part(self.leds.wrapped, label="leds"),
             Part(self.foam.wrapped, label="eva_foam"),
             Part(self.meter.wrapped, label="meter_mock"),
-            Part(self.blue_cover.wrapped, label="blue_cover_parked"),
         ]
+        #  盖板现场已拆除（Meter.cover_present=False）时它是个空实体，
+        #  `.wrapped` 会直接 assert 失败 —— 不能只判 volume，要判有没有实体。
+        if self.blue_cover.volume > 1.0:
+            children.append(Part(self.blue_cover.wrapped, label="blue_cover_parked"))
         if include_illustrative:
             ill = refs.meter_illustrative(self.cfg)
             if ill is not None:
@@ -192,8 +195,6 @@ class Design:
 
         children: list[Part] = [
             _Part((moved(self.meter, "meter")).wrapped, label="00_meter_mock"),
-            # 蓝盖跟着水表不动 —— 它是装配**前提**（第 0 步就要翻开），不是被装的件
-            _Part(moved(self.blue_cover, "meter").wrapped, label="00_blue_cover_parked"),
             _Part(moved(self.body, "body").wrapped, label="01_body"),
         ]
 

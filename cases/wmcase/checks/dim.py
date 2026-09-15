@@ -116,6 +116,22 @@ def hinge_height_consistent(design):
         f"据此取不确定度 ±{m.cover_hinge_tol}")
 
 
+@rule("DIM-15", "DIM", "座圈的墙侧让位口和『盖板还在不在』保持一致",
+      why="让位口是给**翻开的盖板**穿过座圈平面用的。盖板拆掉之后不需要，"
+          "收成 0 能换回一整圈承压面；但如果哪天 cover_present 改回 True 而"
+          "忘了把口开回来，翻开的盖板就穿不过去 —— 而这件事在静态干涉里看不见"
+          "（盖板和座圈在最终位置并不重叠，是**装配路径**上过不去）。"
+          "★ 两个参数一旦有逻辑耦合，就必须有一条检查把它们锁在一起，"
+          "否则迟早有人只改其中一个。")
+def seat_gap_matches_cover(design):
+    m, c = design.cfg.meter, design.cfg.case
+    need = c.collar_seat_gap_deg >= 50.0 if m.cover_present else True
+    return need, (f"cover_present={m.cover_present}，座圈让位口半角 "
+                  f"{c.collar_seat_gap_deg:.0f}°"
+                  + ("（带盖板时需 ≥50°）" if m.cover_present
+                     else "（盖板已拆，不需要开口；座圈为完整一圈）"))
+
+
 @rule("DIM-12", "DIM", "座圈架在银圈顶面上，既不悬空也不压到塑料环",
       why="座圈是整机**唯一**的高度基准，它必须实实在在坐在银圈那个平的加工面上。"
           "两头都会出事：内径做小了会压到蓝色固定环（塑料，会被压变形，"

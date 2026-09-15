@@ -346,6 +346,8 @@ def blue_cover(cfg: Config, angle_deg: float | None = None,
         近端角（原 y=−30.9, z=7.8）→ (0, −23.25, +10.15) ✓ 与 layout.cover_band 对得上
     """
     m = cfg.meter
+    if not m.cover_present:
+        return Part()          # 现场已拆除；铰链销仍然建在 blue_hinge() 里
     theta = m.cover_open_deg if angle_deg is None else angle_deg
     h = m.cover_hinge_above_ring + (m.cover_hinge_tol if worst_case else 0.0)
     hy, hz = m.cover_hinge_y, m.ring_h + h

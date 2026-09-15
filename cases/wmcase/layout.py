@@ -296,6 +296,38 @@ def _park_angles(cfg: Config, n: int = 60):
     return [lo + (hi - lo) * i / n for i in range(n + 1)]
 
 
+def hinge_front_y(cfg: Config) -> float:
+    """
+    铰链销（连支耳）最靠房间侧的 Y。
+
+    盖板拆掉之后，**它就是墙侧最近的障碍物**。销心与固定环内圆相切
+    （y = −dial_r），销半径 hinge_pin_d/2 → 前缘 y = −dial_r + pin_d/2 = −25.40。
+
+    销体在 z ∈ [7.3, 15.4]，正好横在 45° 镜面那条线上（镜面在 y=−28 处
+    z≈14），所以它是真约束，不是摆设。
+    """
+    m = cfg.meter
+    return -m.dial_r + m.hinge_pin_d / 2
+
+
+def rear_obstacle_y(cfg: Config) -> float:
+    """
+    墙侧**最靠房间侧**的障碍物 Y —— 我们的零件必须全部留在它前面。
+
+    这是本设计里唯一一个"障碍物是谁"会变的量：
+
+    * ``cover_present=True``  → 翻开的盖板（−22.59），它比铰链销探得更靠前
+    * ``cover_present=False`` → 铰链销前缘（−25.40）
+
+    **所以下游一律引用这个函数，不要直接引用 cover_clear_y。**
+    参数名和函数名都不写死"盖板"，换掉那个零件时才不用回去改一圈名字。
+    """
+    hinge = hinge_front_y(cfg)
+    if not cfg.meter.cover_present:
+        return hinge
+    return max(hinge, cover_clear_y(cfg))
+
+
 def cover_clear_y(cfg: Config) -> float:
     """
     停放角区间内盖板侵入得**最厉害**的那个 Y。我们的零件必须全部留在它前面。
@@ -308,7 +340,7 @@ def cover_clear_y(cfg: Config) -> float:
 
 def holder_rear_cut_y(cfg: Config) -> float:
     """托板后端的**竖直**切面 Y。"""
-    return cover_clear_y(cfg) + cfg.case.holder_cover_clear
+    return rear_obstacle_y(cfg) + cfg.case.holder_rear_clear
 
 
 def holder_top_z(cfg: Config) -> float:
@@ -377,6 +409,11 @@ def dial_visible_limits(cfg: Config, worst_case: bool = True,
     o = cfg.optics
     y_m = mirror_y_rear(cfg)
     by_mirror = o.path * y_m / (o.lens_face_y - y_m)
+    if not cfg.meter.cover_present:
+        #  盖板拆掉了，墙侧没有那堵墙 —— 剩下的铰链销在 z ≤ 15.4、y ≤ −25.4，
+        #  而表盘外缘的光线在 y=−25.4 处才 z≈2.7，从销**下面**很轻松地过去。
+        #  于是可见范围只由镜片后缘决定。
+        return by_mirror, -1e9, by_mirror
     by_cover = -1e9
     #  ``only_angle`` 用来逐个角度报数 —— 可见范围在停放角区间里**不是单调的**
     #  （90° 25.4 / 110° 24.9 / 180° 29.1），只报一个"最坏值"看不出这件事，

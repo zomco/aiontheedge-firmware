@@ -76,6 +76,13 @@ def build_seat_gap(cfg: Config) -> Part:
     from build123d import Plane, Polyline, extrude, make_face
 
     c, mf, mt = cfg.case, cfg.mfg, cfg.meter
+    if c.collar_seat_gap_deg <= 0.0:
+        #  盖板已拆除 → 不开口，座圈是完整一圈。
+        #  ⚠ 不能让半角 0 走下面那段 —— 扇形会退化成一条线，
+        #    Polyline 上出现重复点，OCC 直接抛 BRep_API: command not done。
+        #    **"把参数调到 0 就自动关掉这个特征"必须显式写出来**，
+        #    指望退化几何自己消失，等来的是崩溃而不是空集。
+        return Part()
     z0 = mt.bezel_top_z - mf.eps
     z1 = collar_top_z(cfg) + mf.eps
     r = c.collar_or + 5.0

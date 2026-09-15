@@ -146,18 +146,43 @@ def mirror_front(design):
         f"镜长 {o.mirror_l:.0f}，后缘 Y={lay.mirror_y_rear(design.cfg):.2f}")
 
 
-@rule("OPT-03B", "OPT", "镜片**后缘**不比蓝盖更严（再加长也换不来可视范围）",
-      why="后缘退到某个位置之后，限制可视范围的就变成蓝盖而不是镜片了。"
-          "这条判据确认我们停在了正确的位置：镜片没有短到白白丢掉本来看得见的表盘，"
-          "也没有长到（在托板上）撞进蓝盖。"
-          "两者相差 <1mm 就说明这一维已经调到头了 —— 再花钱买长镜片没有任何收益。",
+@rule("OPT-03B", "OPT", "可见半径没有被自己的余量白白吃掉",
+      why="可见半径的短板可能是三样东西之一：表盘本身、墙侧的障碍物、"
+          "或者**我们自己留的间隙 + 端壁厚度**。"
+          "前两样没办法，第三样是可以换的 —— 所以判据要算出"
+          "『把间隙和端壁收到下限还能多看见多少』（claimable）。"
+          "  只有在**确实不够看**（小盘整圈的余量为负）而且还有可挖的余地时，"
+          "这条才报警告。够看的时候留着余量是好事，不该被判成缺陷。"
+          "  ★ 这条判据以前写成『镜片后缘 vs 蓝盖』。盖板一拆，"
+          "『蓝盖给的边界』变成了哨兵值，判据当场给出 +999999972mm 这种数字 ——"
+          "**判据也要能在它所依赖的那个东西消失之后活下来**，"
+          "否则配置一变就得回来改判据本身。",
       severity=WARN)
-def mirror_rear_balanced(design):
-    _eff, by_cover, by_mirror = lay.dial_visible_limits(design.cfg)
-    gap = by_mirror - by_cover      # >0 说明镜片更严（还有可挖的余地）
-    return gap <= 1.0, (
-        f"蓝盖给的可见边界 Y={by_cover:.2f}，镜片给的 Y={by_mirror:.2f}，"
-        f"差 {gap:+.2f}mm（>1 说明镜片白白短了这么多）")
+def visible_radius_headroom(design):
+    cfg = design.cfg
+    m, c, o = cfg.meter, cfg.case, cfg.optics
+    vis = abs(lay.dial_visible_limits(cfg)[0])
+
+    #  真正卡住的是**玻璃的后-背角**（FIT-15），不是托板的切面 ——
+    #  所以"还能挖多少"要从那个角算起，中间的端壁厚度不参与。
+    #  （第一版把端壁也加进去了，算出来 claimable 恒等于 0：
+    #    多加的那一项把镜片往前推，反而比现状还差。
+    #    **"能挖多少"必须沿着真正的约束链算，多算一环就会得出"没得挖"。**）
+    corner_min = lay.rear_obstacle_y(cfg) + 0.3
+    tight_rear = corner_min + o.mirror_t / 2 ** 0.5
+    vis_tight = abs(o.path * tight_rear / (o.lens_face_y - tight_rear))
+    claimable = max(0.0, min(vis_tight, m.dial_r) - vis)
+
+    full_margin = vis - m.ocr_full_r
+    ok = full_margin >= 0.0 or claimable < 0.2
+    who = "翻开的蓝盖" if m.cover_present else "铰链销"
+    return ok, (
+        f"可见半径 {vis:.2f}（表盘 {m.dial_r:.2f}，短板是{who}）；"
+        f"小盘整圈余量 {full_margin:+.2f}mm。"
+        f"把后端间隙 {c.holder_rear_clear}→0.3、端壁 {c.holder_rear_wall}→"
+        f"{cfg.mfg.min_wall} 还能多看 {claimable:.2f}mm —— "
+        + ("余量够，不值得为这点去压间隙。" if full_margin >= 0
+           else "**不够看，建议把这点挖回来。**"))
 
 
 # =============================================================================
@@ -242,29 +267,35 @@ def cover_shadow(design):
     eff, by_cover, by_mirror = lay.dial_visible_limits(cfg, worst_case=True)
     nom = lay.dial_visible_limits(cfg, worst_case=False)[0]
     vis = abs(eff)
-    # 逐个停放角报一遍，让人看得出最糟的角度在哪
-    per_angle = []
-    for ang in (90, 100, 110, 130, 150, 180):
-        lim = abs(lay.dial_visible_limits(cfg, worst_case=True, only_angle=ang)[1])
-        per_angle.append(f"{ang}°:{lim:.1f}")
+    if m.cover_present:
+        per = " 按停放角：" + " ".join(
+            f"{a}°:{abs(lay.dial_visible_limits(cfg, True, only_angle=a)[1]):.1f}"
+            for a in (90, 100, 110, 130, 150, 180))
+        src = f"[蓝盖 {abs(by_cover):.2f} / 镜片 {abs(by_mirror):.2f}]"
+    else:
+        per = (f" 盖板已拆除 → 墙侧没有那堵墙，可见范围只由**镜片后缘**决定，"
+               f"而镜片后缘被**铰链销**（y={lay.hinge_front_y(cfg):.2f}）顶住。"
+               f"表盘本身半径 {m.dial_r:.2f}，还差 {m.dial_r - vis:.2f}mm 到全表盘。")
+        src = f"[镜片 {abs(by_mirror):.2f}]"
 
     yield Result("OPT-11", "OPT", f"主数据（r ≤ {m.ocr_primary_r:.0f}）全部可见",
                  vis >= m.ocr_primary_r,
-                 f"可见半径 {vis:.2f}mm（最坏；标称 {nom:+.2f} 的绝对值 {abs(nom):.2f}）"
-                 f"[蓝盖 {abs(by_cover):.2f} / 镜片 {abs(by_mirror):.2f}]；"
+                 f"可见半径 {vis:.2f}mm {src}；"
                  f"主数据需 {m.ocr_primary_r:.0f}mm，余量 {vis - m.ocr_primary_r:+.2f}mm。"
-                 f"按停放角：{' '.join(per_angle)}",
+                 + per,
                  cover_shadow._rule["why"], ERROR)
 
     margin = vis - m.ocr_full_r
+    tip = ("★ 盖板已现场拆除，这一档现在有 2mm 以上余量；"
+           "若某台表的盖板拆不掉，把 Meter.cover_present 改回 True 再跑一遍 —— "
+           "那种情况下这一档会变成 −0.12mm（只影响小盘最外缘的刻度环）。"
+           if not m.cover_present else
+           "★ 办法有三个：把盖板再往墙侧压一点（90° 比 110° 好）、"
+           "把盖板取下来、或者接受只读字轮窗。")
     yield Result("OPT-11-M", "OPT", f"指针小盘**整圈**（r ≤ {m.ocr_full_r:.0f}）也可见",
                  margin >= 0.0,
-                 f"余量 {margin:+.2f}mm（小盘外缘 {m.ocr_full_r:.0f}mm vs 可见 {vis:.2f}mm）。"
-                 f"★ 六台一组里只有**两台**盖板被墙挡住（停在 90°~？），"
-                 f"另外四台能翻过 180° —— 那四台完全不挡（可见 29.1mm）。"
-                 f"这两台如果发现最外圈刻度读不全，办法有三个："
-                 f"把盖板再往墙侧压一点（90° 比 110° 好）、把盖板取下来、"
-                 f"或者接受只读字轮窗（AI-on-the-edge 本来也主要读字轮）。",
+                 f"余量 {margin:+.2f}mm（小盘外缘 {m.ocr_full_r:.0f}mm vs "
+                 f"可见 {vis:.2f}mm）。" + tip,
                  cover_shadow._rule["why"], WARN)
 
 
