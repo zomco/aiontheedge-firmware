@@ -85,7 +85,8 @@ def overhang(design):
 def wall_thickness(design):
     mfg = design.cfg.mfg
     out = []
-    for name, part in design.printed_parts.items():
+    #  用填平刻字的变体：刻字笔画天生细于 min_wall，它不是壁（见 model.py）
+    for name, part in design.thickness_probe_parts.items():
         tris = _triangles(part, Rot(0, 0, 0))
         if not tris:
             continue
@@ -100,10 +101,23 @@ def wall_thickness(design):
                 hits = part.find_intersection_points(Axis(tuple(origin), tuple(-normal)))
             except Exception:  # noqa: BLE001
                 continue
+            #  ★ 只有当射线打到一个**近似平行的对面**时，量到的距离才叫"壁厚"。
+            #    45° 楔形的棱边同样会让射线很快穿出去（棱边处距离趋近于 0），
+            #    但那是一条棱，不是薄壁 —— 托板后端的竖直切面和唇口斜面
+            #    夹出 45° 棱，采样一路报 0.39~0.68mm 的"薄壁"，全是假的。
+            #    判据：出射面法线与入射面法线的夹角要接近 180°（点积 < −0.8）。
             best = None
-            for pt, _n in hits:
+            for pt, n in hits:
                 t = (Vector(pt) - origin).dot(-normal)
-                if 0.05 <= t and (best is None or t < best):
+                if t < 0.05:
+                    continue
+                try:
+                    opposite = Vector(n).normalized().dot(normal) < -0.8
+                except Exception:  # noqa: BLE001
+                    opposite = True
+                if not opposite:
+                    continue
+                if best is None or t < best:
                     best = t
             if best is None:
                 continue

@@ -50,12 +50,48 @@ def collar_bore_r(cfg: Config) -> float:
 
 def collar_rib_r(cfg: Config) -> float:
     """内棱内切半径 = 银圈半径 − 单边过盈（真正咬住的地方）。"""
-    return cfg.meter.bezel_od / 2 - cfg.case.collar_rib_interf      # 40.80
+    return cfg.meter.bezel_od / 2 - cfg.case.collar_rib_interf      # 40.85
+
+
+def collar_top_z(cfg: Config) -> float:
+    """抱箍的实际顶面 = 银圈顶面 + 座圈厚度。夹持带顶 ``collar_z1`` 比它更低。"""
+    return cfg.meter.bezel_top_z + cfg.case.collar_seat_t
+
+
+def build_seat_gap(cfg: Config) -> Part:
+    """
+    座圈在**墙侧**的让位口（去料）。
+
+    让位口只切掉**向内伸的那圈沿**（和光孔同径以内），抱箍的外壁保持完整 ——
+    外壁是抗弯的主要截面，不能为了让位在上沿开个大缺口。
+
+    为什么必须开：
+    * 蓝盖的**铰链凸耳**就长在 y≈−28、比固定环顶面高的位置，半径没量过。
+      一圈完整的沿只要碰上它，整机就架在凸耳上而不是银圈上 —— 那就把
+      "统一高度基准"这个唯一目的直接毁掉了，而且从外面完全看不出来。
+    * 有了口，装配时蓝盖**开着也能**把整机套下去，不必强制"先合盖"。
+    """
+    import math as _m
+
+    from build123d import Plane, Polyline, extrude, make_face
+
+    c, mf, mt = cfg.case, cfg.mfg, cfg.meter
+    z0 = mt.bezel_top_z - mf.eps
+    z1 = collar_top_z(cfg) + mf.eps
+    r = c.collar_or + 5.0
+    a0, a1 = -90.0 - c.collar_seat_gap_deg, -90.0 + c.collar_seat_gap_deg
+    pts = [(0.0, 0.0)]
+    for i in range(17):
+        a = _m.radians(a0 + (a1 - a0) * i / 16)
+        pts.append((r * _m.cos(a), r * _m.sin(a)))
+    wedge = extrude(Plane.XY.offset(z0) * make_face(Polyline(*pts, close=True)),
+                    amount=z1 - z0)
+    return wedge & cyl_z(0, 0, z0, z1, 2 * collar_bore_r(cfg))
 
 
 def build_collar(cfg: Config) -> Part:
     """
-    抱箍：光孔 + N 条内棱过盈 + 剖分缝 + 双 M4 夹紧 + 备用径向顶紧孔。
+    抱箍：光孔 + N 条内棱过盈 + **座圈** + 剖分缝 + 双 M4 夹紧 + 备用径向顶紧孔。
 
     为什么是"大孔 + 内棱"而不是"小孔直接过盈"
     ------------------------------------------
@@ -65,21 +101,40 @@ def build_collar(cfg: Config) -> Part:
 
     现在：光孔单边留 +0.35 便于套入，但 16 条半圆内棱单边**过盈 0.25**。
     只有棱尖接触，局部压强高十几倍，既好装又抗转。
+
+    座圈（内沿圆环）—— 本轮新增，解决"每台装出来高度都不一样"
+    ----------------------------------------------------------
+    内棱只管**转**和**掉**，管不了**高度**：往下压多少全靠手感。
+    而镜片托板的高度直接决定光程和 ROI 标定，40 台各压各的等于 40 套标定。
+
+    所以在银圈顶面那一层长一圈向内的沿，压到沿贴住银圈顶面为止。
+    **接触面是银圈的顶面（一个真实的、平的、和表盘平行的加工面）**，
+    从此整机的 Z 基准和表盘刚性关联，不再和拧螺栓的力气有关。
+
+    径向厚度受一条硬约束：不能超过银圈自己的径向厚度，否则沿会探进
+    表盘上方 —— 那里下面是空的（蓝色固定环只有 Ø61.8），既没支承又挡光。
+    自检 DIM-12 盯着。
     """
     c, m, f = cfg.case, cfg.mfg, cfg.fast
+    mt = cfg.meter
     z0, z1 = c.collar_z0, c.collar_z1
+    ztop = collar_top_z(cfg)
     eps = m.eps
 
-    ring = cyl_z(0, 0, z0, z1, 2 * c.collar_or)
+    ring = cyl_z(0, 0, z0, ztop, 2 * c.collar_or)
     # 夹紧耳分居剖分缝两侧；用 mirror_x 保证严格对称
     ear = bx(c.collar_slit_w / 2, c.collar_slit_w / 2 + c.collar_ear_w,
-             c.collar_or - 6, c.collar_or + 14, z0, z1)
+             c.collar_or - 6, c.collar_or + 14, z0, ztop)
     solid = ring + mirror_x(ear)
 
     # ---- 去料 ----
-    solid -= cyl_z(0, 0, z0 - eps, z1 + eps, 2 * collar_bore_r(cfg))     # 光孔
+    #  光孔只开到**银圈顶面**；再往上内孔收到 collar_seat_ir，收出来的那圈
+    #  就是座圈。两个减法体在 Z 上刻意重叠 eps —— 只相切会留退化边（TOPO-04）。
+    solid -= cyl_z(0, 0, z0 - eps, mt.bezel_top_z, 2 * collar_bore_r(cfg))
+    solid -= cyl_z(0, 0, mt.bezel_top_z - eps, ztop + eps, 2 * c.collar_seat_ir)
+    solid -= build_seat_gap(cfg)                                         # 墙侧让位口
     solid -= bx(-c.collar_slit_w / 2, c.collar_slit_w / 2,               # 剖分缝
-                collar_bore_r(cfg) - 10, c.collar_or + 16, z0 - eps, z1 + eps)
+                collar_bore_r(cfg) - 10, c.collar_or + 16, z0 - eps, ztop + eps)
     for bz in c.collar_bolt_z:                                           # 两颗 M4
         solid -= cyl_x(-30, 30, c.collar_or + 8, bz, f.m4_clearance)
     set_hole = Rot(0, 0, c.collar_set_ang) * cyl_y(
@@ -375,6 +430,15 @@ def build_pod_cuts(cfg: Config) -> Part:
     cuts += bx(-c.cav_half_x, c.cav_half_x, p.pcb_face_y, c.pod_back_y + eps,
                c.cav_z0, c.cav_z1)
 
+    # ---- 弹性卡钩的**变形空间**（切进两侧壁）----
+    #  悬臂外表面在 X=15.5，型腔壁在 17.0 —— 只有 1.5mm，而卡钩要让 1.5mm，
+    #  正好顶死。**"做了弹性件"不等于"它让得开"**，必须显式把让位空间挖出来。
+    #  自检 CONS-18 会核算 (相当于) 侧壁到悬臂外表面的距离 > 需要的变形量。
+    _rib_in, _rib_out = board_rail_x(cfg)
+    cuts += mirror_x(bx(c.cav_half_x - eps, c.cav_half_x + c.board_arm_relief,
+                        p.pcb_back_y, p.pcb_back_y + c.board_hook_ramp_y + 1.5,
+                        board_arm_z0(cfg) - 3.0, p.pcb_z1 + c.board_tab_gap + 3.0))
+
     # ---- 滑盖 C 型槽：切进两侧壁，上方开口 ----
     cuts += bx(-c.cover_groove_x, c.cover_groove_x,
                c.cover_y0 - m.fit_slide, c.cover_lip_y,
@@ -395,18 +459,116 @@ def build_pod_cuts(cfg: Config) -> Part:
     return cuts
 
 
+def board_rail_x(cfg: Config) -> tuple[float, float]:
+    """侧向导轨（也是弹性悬臂）的 X 范围。"""
+    p, c = pod_layout(cfg), cfg.case
+    rib_in = p.pcb_half_x + c.board_rib_clear
+    return rib_in, rib_in + c.board_rib_t
+
+
+def board_arm_z0(cfg: Config) -> float:
+    """弹性悬臂的**根部** Z（= 下段刚性导轨的顶面）。悬臂自由长度自此往上算。"""
+    p, c = pod_layout(cfg), cfg.case
+    return p.pcb_z1 - c.board_arm_len
+
+
+def build_board_rail_half(cfg: Config) -> Part:
+    """
+    +X 侧的**刚性**段：侧向导轨 + 下缘后压唇。
+
+    导轨只做到悬臂根部为止 —— 再往上如果还有整面墙，悬臂就被墙背着，
+    在 X 方向根本弹不动。**"做了一个悬臂"和"这个悬臂能动"是两件事**，
+    后者要靠把周围的料清干净来保证（自检 CONS-18 用应变公式反查）。
+    """
+    c, p = cfg.case, pod_layout(cfg)
+    rib_in, rib_out = board_rail_x(cfg)
+    lip_y0 = p.pcb_back_y + c.board_slot_clr
+    lip_y1 = lip_y0 + c.board_lip_t
+    rail = bx(rib_in, rib_out, p.pcb_face_y, lip_y1 + 0.5,
+              p.pcb_z0, board_arm_z0(cfg))
+    #  压唇从导轨内伸出来盖住 PCB 下缘后角；X 一直画到 rib_out
+    #  （和导轨**整段重叠**，不是擦边 0.01mm）—— 只相切会留退化边。
+    lip_in = p.pcb_half_x - c.board_lip_overlap
+    rail += bx(lip_in, rib_out, lip_y0, lip_y1,
+               p.pcb_z0, p.pcb_z0 + c.board_lift - 0.3)
+    return rail
+
+
+def build_board_catch_half(cfg: Config) -> Part:
+    """
+    +X 侧的**弹性**卡钩：一根沿 Z 向上的悬臂，头上带两个特征。
+
+    ::
+
+        z = pcb_z1 + gap + 2  ┬  ┌──┐ ← 顶部压舌：盖住 PCB 上缘，锁 +Z
+        z = pcb_z1 + gap      ┤  └──┘   （间隙 gap 就是板卡能上抬的全部行程）
+        z = pcb_z1            ┬  ┌──┐ ← 卡钩：顶住 PCB 后表面，锁 +Y（= 抗 pitch）
+        z = board_hook_z0     ┤  └──┘   （只能落在背面无元件的那 2mm 里）
+                              │  │  │
+                              │  │  │ ← 悬臂，厚 board_arm_t，朝 +X 弹
+        z = arm_z0            ┴  └──┘ ← 根部，接在下段刚性导轨上
+
+    两个特征都带**沿 Y 的导入斜面**：板卡从 +Y 推进来时先顶到斜面，
+    把悬臂顶开，推到底再弹回去。斜面做成 loft，一次成型不用倒角。
+
+    为什么两个特征的过盈量不一样（钩 1.5 / 舌 0.9）：它们共用一根悬臂，
+    让开的量由**大的那个**决定；小的那个必须在整个推入过程中都被带着让开，
+    所以它的斜面得比钩子的更靠前、过盈更小。这一条由 CONS-18 的
+    "推入路径上任一点的过盈体积 ≤ 名义值" 兜底。
+    """
+    from build123d import Plane, Rectangle, loft
+
+    c, p = cfg.case, pod_layout(cfg)
+    rib_in, rib_out = board_rail_x(cfg)
+    lip_y0 = p.pcb_back_y + c.board_slot_clr
+    arm_y1 = lip_y0 + c.board_hook_ramp_y
+    hz0, hz1 = c.board_hook_z0, p.pcb_z1
+    tab_z0 = p.pcb_z1 + c.board_tab_gap
+    tab_z1 = tab_z0 + c.board_tab_h
+    z_root = board_arm_z0(cfg)
+
+    # 悬臂本体：刻意从根部再往下伸 1.5mm，和刚性导轨**体积重叠**而不是相切
+    arm = bx(rib_in, rib_out, lip_y0, arm_y1, z_root - 1.5, tab_z1)
+
+    def ramp(x_in: float, y_front: float, y_back: float, z0: float, z1: float) -> Part:
+        """从 (x_in @ y_front) 斜到 (rib_in @ y_back) 的楔形，即导入斜面 + 卡台。"""
+        s_f = (Plane.XZ.offset(-y_front) * Pos((x_in + rib_out) / 2, (z0 + z1) / 2)
+               * Rectangle(rib_out - x_in, z1 - z0))
+        s_b = (Plane.XZ.offset(-y_back) * Pos((rib_in + rib_out) / 2, (z0 + z1) / 2)
+               * Rectangle(rib_out - rib_in, z1 - z0))
+        return loft([s_f, s_b], ruled=True)
+
+    # 卡钩（锁 +Y）
+    arm += ramp(p.pcb_half_x - c.board_hook_overlap, lip_y0, arm_y1, hz0, hz1)
+    # 顶部压舌（锁 +Z）：往前一直伸到 PCB 前表面附近才盖得住上缘。
+    #  前段是**满过盈的平段**（不是从头斜到尾）：斜面越长，同一段 Y 上的
+    #  有效盖住量越小，反向判据（CONS-17 抬起必须被挡）量到的体积就越接近
+    #  布尔噪声。**防呆/约束类特征要留一段"实打实"的平面，别做成纯楔形。**
+    tab_in = p.pcb_half_x - c.board_tab_overlap
+    tab_y0 = p.pcb_face_y + 0.3
+    tab_y1 = lip_y0 + 0.3                       # 平段末端（已伸到 PCB 后方）
+    arm += bx(tab_in, rib_out, tab_y0, tab_y1, tab_z0, tab_z1)
+    arm += ramp(tab_in, tab_y1 - 0.4, tab_y1 + 1.3, tab_z0, tab_z1)
+    return arm
+
+
 def build_pod_inner_features(cfg: Config) -> Part:
     """
     型腔挖好之后才能长出来的内部特征：板卡承台、侧向导轨、天线框。
 
-    板卡的六个自由度是这样锁住的（自检 CONS-06~09 逐条验证）::
+    板卡的六个自由度是这样锁住的（自检 CONS-07~09 / 14~18 逐条验证）::
 
-        −Y  摄像头方腔的前端面 + 前壁
-        +Y  滑盖内侧 EVA 泡棉把板顶向前
+        −Y  摄像头方腔的前端面 + 前壁台阶
+        +Y  下缘后压唇（底部） + 上端弹性卡钩（顶部）← 两点，所以 pitch 也锁住了
         ±X  两条侧向导轨夹住 PCB 边（间隙 0.4）
         −Z  板下缘落在承台上
-        +Z  重力 + 泡棉摩擦（不需要硬定位）
-        绕轴 导轨 + 承台构成三点约束
+        +Z  顶部压舌，间隙只留 board_tab_gap
+        绕 X（pitch）  上下两点的 +Y 约束
+        绕 Y / Z       导轨 + 承台
+
+    ★ 上一版的 +Y 只有底部一点、+Z 完全没有约束，靠的是"重力 + 泡棉摩擦"。
+      实物结论：一摇就掉。**"重力 + 摩擦"不是约束，写进自由度表里就是自欺欺人。**
+      EVA 泡棉现在退化成减振垫，不再承担定位职责。
     """
     c, p = cfg.case, pod_layout(cfg)
     feat = Part()
@@ -419,31 +581,16 @@ def build_pod_inner_features(cfg: Config) -> Part:
     feat += bx(-shelf_x, shelf_x, p.pcb_face_y, p.pcb_face_y + c.board_shelf_len,
                p.pcb_z0 - c.board_shelf_t, p.pcb_z0)
 
-    # ---- 侧向导轨 + **下缘后压唇**（板卡的 +Y 固定）----
-    #  没有它的时候，板卡只有一个前止挡和一个底部承台，整机稍微一斜就掉出来。
+    # ---- 侧向导轨 + 下缘后压唇 + **上端弹性卡钩**（板卡的 +Y / +Z 固定）----
+    #  下缘压唇只做在 Z pcb_z0 ~ pcb_z0+board_lift 那一小段：板卡是抬高
+    #  board_lift 水平推入、再落下就位的，压唇落在别处都会挡住水平推入。
+    #  落下之后它扣住 PCB 的下缘后角。
     #
-    #  为什么压唇只做在**下缘**：板卡是抬高 board_lift 水平推入、再落下就位的。
-    #  压唇在 PCB 的 Z 行程内任何位置都会挡住水平推入 —— 只有落在
-    #  「抬高后 PCB 下缘之下」的那一小段（Z pcb_z0 ~ pcb_z0+board_lift）才不挡。
-    #  落下之后，这段压唇正好扣住 PCB 的下缘后角。
-    #
-    #  为什么不做弹性卡扣：卡钩必须落在 PCB 后表面（Y=89.67）之后，
-    #  而唯一能生根的实体是前止挡台阶（Y=88.07）—— 相距只有 1.6mm，
-    #  做不出有柔度的悬臂。**几何上不成立的方案不要硬凑**，换装配动作才是解。
-    rib_in = p.pcb_half_x + c.board_rib_clear
-    rib_out = rib_in + c.board_rib_t
-    lip_y0 = p.pcb_back_y + c.board_slot_clr
-    lip_y1 = lip_y0 + c.board_lip_t
-    rib = bx(rib_in, rib_out, p.pcb_face_y, lip_y1 + 0.5,
-             p.pcb_z0, p.pcb_z1 - 1)
-    #  压唇从导轨内伸出来盖住 PCB 下缘后角；内伸量约 1mm，
-    #  打印姿态下是 1mm 的水平外伸，自支撑。
-    #  X 一直画到 rib_out（和导轨**整段重叠**，不是擦边 0.01mm）——
-    #  两个加法体只在一个面上相切同样会留退化边。
-    lip_in = p.pcb_half_x - c.board_lip_overlap
-    rib += bx(lip_in, rib_out, lip_y0, lip_y1,
-              p.pcb_z0, p.pcb_z0 + c.board_lift - 0.3)
-    feat += mirror_x(rib)
+    #  ⚠ 上一版**只有**这个压唇，实物一摇板子还是会从 pitch 方向倒出来。
+    #    原因见 params.Case 里那条几何定理：可上抬行程恒 ≥ 抬升行程 > 压唇高度，
+    #    板一抬到顶压唇就脱开，上端又完全自由。刚性件解决不了，必须上弹性件。
+    feat += mirror_x(build_board_rail_half(cfg))
+    feat += mirror_x(build_board_catch_half(cfg))
 
     # ---- 天线定位框（贴 +X 内壁，馈点朝上）----
     fx1 = c.cav_half_x

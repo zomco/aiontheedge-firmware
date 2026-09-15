@@ -9,8 +9,10 @@
 
 from __future__ import annotations
 
+from build123d import Pos
+
 from ..geometry import bx
-from . import ERROR, INFO, WARN, Result, rule
+from . import ERROR, INFO, WARN, Result, fmt, inter_vol, rule
 
 
 @rule("DIM-01", "DIM", "抱箍内棱的过盈量在可用区间",
@@ -69,12 +71,19 @@ def ceiling(design):
     return zmax < m.ceiling_z, f"最高点 zmax={zmax:.1f}（{who}）< 天花板 {m.ceiling_z:.1f}"
 
 
-@rule("DIM-06", "DIM", "镜片托板提起 8mm 后仍不撞天花板")
+@rule("DIM-06", "DIM", "镜片托板提起后仍不撞天花板",
+      why="托板现在被 layout.holder_top_z() 主动削平到 "
+          "`天花板 − 提起行程 − 余量`，所以这条**应该恒成立**。"
+          "留着它不是多余：削平那一刀万一被谁注释掉、或者提起行程变大，"
+          "这里会立刻红。**把约束做进几何之后，检查的角色就从"
+          "『发现错误』变成『守住那个几何』——两个作用都要有。**")
 def holder_lift_headroom(design):
-    m = design.cfg.meter
+    m, c = design.cfg.meter, design.cfg.case
+    lift = c.holder_lift_clear
     zmax = design.mirror_holder.bounding_box().max.Z
-    return zmax + 8.0 < m.ceiling_z, \
-        f"托板最高 {zmax:.1f} + 提起 8.0 = {zmax + 8.0:.1f} < {m.ceiling_z:.1f}"
+    return zmax + lift < m.ceiling_z, (
+        f"托板最高 {zmax:.1f} + 提起 {lift:.1f} = {zmax + lift:.1f} "
+        f"< 天花板 {m.ceiling_z:.1f}，余量 {m.ceiling_z - lift - zmax:.1f}")
 
 
 @rule("DIM-11", "DIM", "蓝色固定环外径 = 银圈内径（两次独立测量互相印证）",
@@ -88,6 +97,42 @@ def ring_matches_bezel(design):
     dev = abs(m.ring_od - m.bezel_id)
     return dev <= 0.3, (f"固定环外径 {m.ring_od} vs 银圈内径 {m.bezel_id}，"
                         f"偏差 {dev:.2f}mm；推出的壁厚 {m.ring_t:.2f}")
+
+
+@rule("DIM-12", "DIM", "座圈架在银圈顶面上，既不悬空也不压到塑料环",
+      why="座圈是整机**唯一**的高度基准，它必须实实在在坐在银圈那个平的加工面上。"
+          "两头都会出事：内径做小了会压到蓝色固定环（塑料，会被压变形，"
+          "而且环本身相对表盘的高度没人保证）；径向做厚了会伸到银圈内孔上方"
+          "悬空，既没支承又挡住外缘光线。"
+          "判据式子：ring_od/2 < collar_seat_ir 且 bezel_od/2 − collar_seat_ir ≤ 银圈径向厚度。")
+def seat_ring(design):
+    m, c = design.cfg.meter, design.cfg.case
+    radial = m.bezel_od / 2 - c.collar_seat_ir
+    bezel_radial = (m.bezel_od - m.bezel_id) / 2
+    ok = (c.collar_seat_ir > m.ring_od / 2 + 0.3) and (0 < radial <= bezel_radial)
+    return ok, (f"座圈内半径 {c.collar_seat_ir} > 固定环外半径 {m.ring_od / 2:.2f}；"
+                f"径向厚度 {radial:.2f} ≤ 银圈径向厚度 {bezel_radial:.2f}；"
+                f"承压环面 {radial:.2f}×2π×{c.collar_seat_ir:.0f} ≈ "
+                f"{radial * 2 * 3.1416 * (c.collar_seat_ir + radial / 2):.0f}mm²")
+
+
+@rule("DIM-13", "DIM", "座圈确实顶在银圈顶面上（**反向**判据）",
+      why="正向的『不干涉』说明不了任何事 —— 座圈悬在银圈上方 2mm 也不干涉。"
+          "所以要反过来问：整机再往下压 0.5mm，座圈**必须**扎进银圈里。"
+          "判定区间刻意取在 z ∈ [银圈顶−0.6, 银圈顶]，这一段夹持带的内棱"
+          "（z ≤ 2.0）够不到，所以量到的干涉一定来自座圈，不会被内棱的"
+          "过盈污染。**反向判据要挑一个只有被测特征能到达的区域。**")
+def seat_is_datum(design):
+    m = design.cfg.meter
+    band = bx(-60, 60, -60, 60, m.bezel_top_z - 0.6, m.bezel_top_z)
+    target = design.meter & band
+    # 把**水表**抬 0.5mm 等价于把整机压下 0.5mm。写成 Pos(0,0,-0.5)*target
+    # 的话是整机往上抬，那边本来就是空的，永远量到 0 —— 反向判据的方向
+    # 写反了不会报错，只会安静地永远"通过"。
+    down = inter_vol(design.body, Pos(0, 0, 0.5) * target)
+    flat = inter_vol(design.body, target)
+    return down > 10.0 and flat < design.cfg.mfg.vol_tol, (
+        f"就位时干涉 {fmt(flat)}（应为 0）；下压 0.5mm 后 {fmt(down)}（应 >10）")
 
 
 @rule("DIM-07", "DIM", "光学基准链自洽",

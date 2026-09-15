@@ -21,7 +21,7 @@ import os
 from dataclasses import dataclass
 from functools import lru_cache
 
-from build123d import Box, Cylinder, Location, Part, Pos, Rot, import_step
+from build123d import Box, Cylinder, Location, Part, Pos, Rot, import_step, scale
 
 from .geometry import bx, cyl_x, cyl_z, mirror_x
 from .layout import board_location, led_frame, mirror_frame
@@ -243,7 +243,7 @@ def meter_mock(cfg: Config) -> RefModel:
     """
     **判定用**的水表替身，由卡尺实测数据 + 样本外形表搭出来：
 
-    * 银圈：外径 82.1 / 内径 61.8 / 高 21.1 的圆环（**抱箍的配合对象**）
+    * 银圈：外径 82.2 / 内径 61.8 / 高 24.8 的圆环（**抱箍的配合对象**）
     * 底部凸台：宽 9.5 高 2.8 的一圈（夹持带必须避开）
     * 表头壳体 + 中段铸体 + 两端管接：管轴在 z = −57
 
@@ -259,7 +259,7 @@ def meter_mock(cfg: Config) -> RefModel:
     # 银圈底部凸台
     boss = cyl_z(0, 0, m.bezel_bottom_z, m.boss_top_z, m.bezel_od + 2 * m.boss_w)
     boss -= cyl_z(0, 0, m.bezel_bottom_z - 1, m.boss_top_z + 1, m.bezel_od)
-    # 蓝色固定环：坐在表盘玻璃面上，高 5mm。它会在表盘外缘投出一圈阴影，
+    # 蓝色固定环：坐在表盘玻璃面上，高 7.8mm。它会在表盘外缘投出一圈阴影，
     # 也是蓝盖铰链的落脚点 —— 必须建进判定用的模型里。
     ring = ring + blue_ring(cfg)
     # 表头壳体：从银圈底面接到中段铸体
@@ -290,15 +290,23 @@ def blue_ring(cfg: Config) -> Part:
     return ring
 
 
-def blue_cover(cfg: Config, angle_deg: float | None = None) -> Part:
+def blue_cover(cfg: Config, angle_deg: float | None = None,
+               worst_case: bool = True) -> Part:
     """
     表盘上的**蓝色盖板**，绕铰链翻开 ``angle_deg``（默认取停放角度）。
 
-    几何约定
-    --------
-    * 铰链轴沿 **X**，位于固定环外缘的**墙侧**：``(y, z) = (−ring_od/2, ring_h)``
-    * 盖板是一块圆片，**铰链在它的边缘上**（所以闭合时正好盖住整个环）
+    几何约定（**这一段在 2026-09 修正过一次，是本轮最重要的改动**）
+    ------------------------------------------------------------------
+    * 盖板闭合时是一块**与表盘同心**的圆片，坐在固定环顶面上
+      （z 从 ``ring_h`` 到 ``ring_h + cover_t``）
+    * 铰链轴沿 **X**，但它**不在盖板的边缘上**：它架在一个凸耳上，
+      比固定环顶面高 ``cover_hinge_above_ring``，在 Y 上与固定环**内圆**相切
+      → ``(y, z) = (−dial_r, ring_h + hinge_above)`` = (−28.25, +12.8)
     * ``angle_deg`` 是盖板平面与表盘面的夹角；0° = 闭合，100° = 实测的停放角
+
+    上一版把铰链当成"在盖板边缘、贴着环顶面"（−30.9, +5.0）。
+    改正后翻开的盖板整片朝房间侧挪了约 8mm —— 正好挡住镜片托板要伸过去的地方。
+    ``worst_case=True`` 再把铰链抬高 ``cover_hinge_tol``，让位量按这个算。
 
     为什么必须朝墙侧（−Y）停放
     --------------------------
@@ -309,22 +317,26 @@ def blue_cover(cfg: Config, angle_deg: float | None = None) -> Part:
     旋转映射（按 DESIGN_NOTES §7.1 的规矩写全并验算）::
 
         绕 X 轴转 θ：(y, z) → (y·cosθ − z·sinθ,  y·sinθ + z·cosθ)，相对铰链
-        闭合时圆心相对铰链在 (0, +cover_r, +cover_t/2)
-        θ=100° 代入 → 相对 (0, −5.47−1.48, +31.02−0.26) = (0, −6.95, +30.76)
-        绝对圆心 (0, −37.85, +35.76)，盖板远端约 (0, −41.8, +67.0)  ✓ 朝墙侧仰起
+        闭合时圆心相对铰链在 (0, +dial_r, cover_t/2 − hinge_above) = (0, 28.25, −3.5)
+        θ=90° 代入 → 相对 (0, +3.5, +28.25)
+        绝对圆心 (0, −24.75, +41.05)，圆片竖直，z 跨 10.15~71.95  ✓ 一堵立起来的墙
+        近端角（原 y=−30.9, z=7.8）→ (0, −23.25, +10.15) ✓ 与 layout.cover_band 对得上
     """
     m = cfg.meter
     theta = m.cover_open_deg if angle_deg is None else angle_deg
-    hy, hz = m.cover_hinge_y, m.cover_hinge_z
-    closed = Pos(0, hy + m.cover_r, hz + m.cover_t / 2) * Cylinder(m.cover_r, m.cover_t)
+    h = m.cover_hinge_above_ring + (m.cover_hinge_tol if worst_case else 0.0)
+    hy, hz = m.cover_hinge_y, m.ring_h + h
+    # 闭合姿态：与表盘同心、坐在固定环顶面上的圆片
+    closed = Pos(0, 0, m.ring_h + m.cover_t / 2) * Cylinder(m.cover_r, m.cover_t)
     return Pos(0, hy, hz) * Rot(theta, 0, 0) * Pos(0, -hy, -hz) * closed
 
 
 def blue_cover_ref(cfg: Config) -> RefModel:
     m = cfg.meter
     return RefModel(name="blue_cover", shape=blue_cover(cfg), trust=MOCK,
-                    source=f"蓝色盖板 R{m.cover_r}×{m.cover_t}，停放角 {m.cover_open_deg:.0f}°"
-                           f"（半径/厚度仍是照片目测）")
+                    source=f"蓝色盖板 R{m.cover_r}×{m.cover_t}，停放角 {m.cover_open_deg:.0f}°，"
+                           f"铰链高出环顶 {m.cover_hinge_above_ring}+{m.cover_hinge_tol}"
+                           f"（半径/厚度仍是照片目测，但已证明不敏感）")
 
 
 def meter_illustrative(cfg: Config) -> RefModel | None:
@@ -353,8 +365,10 @@ def meter_illustrative(cfg: Config) -> RefModel | None:
     shp = load_step(cfg, "watermeter-dn25.step")   # 仅用于装配体展示，不参与布尔
     if shp is None:
         return None
-    dz = cfg.meter.bezel_top_z - cfg.meter.dn25_bezel_top_ys
-    placed = Pos(0, 0, dz) * Rot(90, 0, 0) * shp
+    m = cfg.meter
+    k = m.dn25_scale
+    dz = m.bezel_top_z - m.dn25_bezel_top_ys * k
+    placed = Pos(0, 0, dz) * Rot(90, 0, 0) * scale(shp, k)
     return RefModel(name="meter_dn25_illustrative", shape=placed, trust=ILLUSTRATIVE,
-                    source="watermeter-dn25.step（DN25，银圈 Ø100.87，仅供外观参考；"
-                           "它比实测用表大一圈，装配体里会明显穿过抱箍，这是预期的）")
+                    source=f"watermeter-dn25.step 等比缩放 ×{k:.4f}"
+                           f"（银圈 Ø{m.dn25_bezel_od} → Ø{m.bezel_od}，仅供外观参考）")

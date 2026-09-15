@@ -51,6 +51,28 @@ class Design:
         return self._timed("slide_cover", build_slide_cover)
 
     @property
+    def thickness_probe_parts(self) -> dict[str, Part]:
+        """
+        **壁厚采样专用**的变体：把表面刻字填平之后再量。
+
+        刻字是 0.6mm 深的表面标记，笔画宽度（≈0.45mm）天然小于 `min_wall`——
+        **它不是"壁"，壁厚判据对它不适用**。不填平的话，刻字会贡献一大把
+        假薄壁读数，把真正的薄壁淹没在噪声里：`DFAM-02` 的比例一旦被刻字
+        顶到阈值附近，这条检查就再也分不出"设计薄了"和"字刻细了"。
+
+        > **判据要么能解释每一个异常读数，要么就把不适用的区域显式排除掉。
+        > 靠调高阈值来容忍已知噪声，等于把检查的分辨率一起调没了。**
+        """
+        from .parts.mirror_holder import build_face_marker
+
+        parts = dict(self.printed_parts)
+        try:
+            parts["mirror_holder"] = self.mirror_holder + build_face_marker(self.cfg)
+        except Exception:  # noqa: BLE001  刻字降级成箭头时同样处理，失败就按原件量
+            pass
+        return parts
+
+    @property
     def printed_parts(self) -> dict[str, Part]:
         """要 3D 打印的三个件。导出和拓扑自检都遍历它。"""
         return {
@@ -184,12 +206,19 @@ class Design:
         one = Pos(base[0] * spread + ax[0] * d,
                   base[1] * spread + ax[1] * d,
                   base[2] * spread + ax[2] * d) * led_single(self.cfg)
-        children.append(_Part(mirror_x(one).wrapped, label="03_leds"))
+        children.append(_Part(mirror_x(one).wrapped,
+                              label=f"{order.get('leds', 99):02d}_leds"))
 
-        for key, label in (("board", "07_esp32s3cam"), ("foam", "08_eva_foam"),
-                           ("slide_cover", "09_slide_cover"),
-                           ("mirror_glass", "11_mirror_glass"),
-                           ("mirror_holder", "12_mirror_holder")):
+        # 标号直接取自装配步骤，不要手写 —— 插一步就要改一排字符串的话，
+        # 迟早有一处忘了改，而爆炸图上标错的顺序比没有顺序更糟。
+        def lbl(key: str, name: str) -> str:
+            return f"{order.get(key, 99):02d}_{name}"
+
+        for key, label in ((k, lbl(k, n)) for k, n in (
+                ("board", "esp32s3cam"), ("foam", "eva_foam"),
+                ("slide_cover", "slide_cover"),
+                ("mirror_glass", "mirror_glass"),
+                ("mirror_holder", "mirror_holder"))):
             src = {"board": self.board, "foam": self.foam,
                    "slide_cover": self.slide_cover,
                    "mirror_glass": self.mirror_glass,

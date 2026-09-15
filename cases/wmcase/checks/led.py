@@ -33,7 +33,36 @@ from . import ERROR, INFO, WARN, Result, fmt, inter_vol, rule
 
 
 def _blockers(design) -> dict:
-    """所有可能挡住 LED 光的实体。**托板必须在里面。**"""
+    """
+    所有可能挡住 LED 光的实体。
+
+    ⚠ 这份清单错过两轮了，每次都是同一类错误 —— **少列了一个真实存在的东西**：
+      第一轮少了 ``mirror_holder``（挡光的正是托板支承片：报 0% 遮挡，实为 46%）；
+      第二轮少了水表**自己**的件 —— 蓝色固定环（实测高 7.8mm，就立在表盘外缘上）
+      和翻开停放的蓝色盖板。LED-05 的说明里甚至写着"环会在外缘投下一圈阴影，
+      靠对置的另一颗灯补上，本条逐点验证"——可环根本没进过清单，
+      那句话从来没被验证过。
+      **文档写了『自检会验』不等于自检真的在验。**
+    """
+    return {
+        "主体": design.body,
+        "镜片托板": design.mirror_holder,
+        "水表(含蓝环)": design.meter,
+        "翻开的蓝盖": design.blue_cover,
+    }
+
+
+def _our_blockers(design) -> dict:
+    """
+    只算**我们自己的零件**。
+
+    为什么要分两份清单：水表的蓝色固定环挡掉一部分掠射光是**几何必然**，
+    不是设计缺陷 —— 同侧 LED 打向同侧外缘的光必然被 7.8mm 高的环切掉一段
+    （对侧那颗补上，LED-05 验证这件事）。
+    把它算进"结构件遮挡率"里，那个百分比就再也没法用来判断设计好坏了。
+    **判据要能区分"我们造成的"和"世界本来就这样"，否则它只能告诉你有问题，
+    不能告诉你该改谁。**
+    """
     return {"主体": design.body, "镜片托板": design.mirror_holder}
 
 
@@ -49,7 +78,7 @@ def _blockers(design) -> dict:
           "而真实情况是 46%。**判据的分辨率不够时，它给出的『通过』毫无意义。**")
 def illumination_trace(design):
     cfg = design.cfg
-    blockers = _blockers(design)
+    blockers = _our_blockers(design)
     pts = ox.sample_dial_points(cfg, n_rim=16, n_ring=2)
     total = blocked = 0
     worst_emitter = None
@@ -87,7 +116,7 @@ def illumination_trace(design):
 def useful_cone_clear(design):
     cone = ox.useful_led_cone(design.cfg)
     out = []
-    for name, part in _blockers(design).items():
+    for name, part in _our_blockers(design).items():
         v = inter_vol(cone, part)
         out.append(Result("LED-02", "LED", f"有用光束 ∩ {name}", v < 60.0,
                           f"{fmt(v)}（灯座根部允许微量）",
@@ -121,38 +150,63 @@ def beam_angle(design):
 def grazing(design):
     m, lg = design.cfg.meter, design.cfg.light
     h = led_grazing_height(design.cfg, m.dial_r)
-    return h > m.glass_depth + 3.0, (
+    # 要越过的是**蓝色固定环的内缘顶角**（高 ring_h = 7.8 实测），不是银圈顶面。
+    # 拿 glass_depth（4.0）当门槛会把这条判据放宽将近一倍。
+    need = m.ring_h
+    return h > need + 3.0, (
         f"z({m.dial_r:.2f}) = {lg.pos_z} × {m.dial_r:.2f} / {lg.pos_r} = {h:.2f}mm "
-        f"> 井深 {m.glass_depth} + 3")
+        f"> 固定环内缘高 {need} + 3")
 
 
-@rule("LED-05", "LED", "每个表盘采样点都被**两颗**灯照到",
+@rule("LED-05", "LED", "表盘没有全黑点；OCR 关键区被**两颗**灯照到",
       why="两颗对置不是冗余，是几何必需：单颗 LED 在这个入射角下，"
           "井壁会在对侧投出一条阴影带，正好压住最外圈指针。"
-          "所以判据不是『至少一颗照到』，而是『两颗都照到』。")
+          "★ 但把遮挡物补全（加上 7.8mm 高的蓝色固定环）之后，"
+          "原来那条『每一点都要两灯可达』的判据**在物理上就不可能满足**了："
+          "同侧 LED 打向同侧最外缘的掠射光必然被环切掉 —— "
+          "从 (38,0,20) 射向 (24,0,0) 的光线在 r=28.25 处只有 6.1mm 高，"
+          "低于环顶 7.8mm。这是几何，不是缺陷。\n"
+          "  所以判据拆成两级：**任何一点都不许全黑**（硬判据），"
+          "**OCR 关键区要两灯可达**（有方向性阴影就读不准）。"
+          "外缘单灯可达是可以接受的 —— 那里没有要读的东西。\n"
+          "  **一条永远满足不了的判据比没有判据更糟**：它会让人习惯于忽略红字。")
 def both_leds_reach(design):
     cfg = design.cfg
-    blockers = _blockers(design)
-    pts = ox.sample_dial_points(cfg, n_rim=16, n_ring=2)
+    blockers = _blockers(design)          # 这里要用**完整**清单：环的阴影是真的
     tips = ox.led_tips(cfg)
-    single, dark = [], []
-    for x, y, tag in pts:
+
+    def lit_count(x, y) -> int:
         target = ox.Vector(x, y, 0.0)
-        lit = 0
+        n = 0
         for tip in tips:
             vec = target - tip
             unit = vec.normalized()
             if not any(ox._first_hit(s, tip, unit, vec.length - 0.3, t_min=0.5)
                        for s in blockers.values()):
-                lit += 1
-        if lit == 0:
+                n += 1
+        return n
+
+    pts = ox.sample_dial_points(cfg, n_rim=16, n_ring=2)
+    single, dark = [], []
+    for x, y, tag in pts:
+        n = lit_count(x, y)
+        if n == 0:
             dark.append(tag)
-        elif lit == 1:
+        elif n == 1:
             single.append(tag)
-    ok = not dark and not single
-    return ok, (f"{len(pts)} 点中：两灯可达 {len(pts) - len(single) - len(dark)}，"
-                f"仅单灯 {len(single)}，全黑 {len(dark)}"
-                + (f"；单灯点示例 {single[:5]}" if single else ""))
+    yield Result("LED-05", "LED", "表盘上没有全黑的点", not dark,
+                 f"{len(pts)} 点中：两灯可达 {len(pts) - len(single) - len(dark)}，"
+                 f"仅单灯 {len(single)}（多在墙侧/同侧最外缘，被固定环切掉掠射光），"
+                 f"全黑 {len(dark)}" + (f" —— {dark[:5]}" if dark else ""),
+                 both_leds_reach._rule["why"], ERROR)
+
+    crit = ox.ocr_critical_points(cfg)
+    c_single = [t for x, y, t in crit if lit_count(x, y) == 1]
+    c_dark = [t for x, y, t in crit if lit_count(x, y) == 0]
+    yield Result("LED-05-OCR", "LED", "OCR 关键区两灯可达", not c_single and not c_dark,
+                 f"{len(crit)} 个关键点中：单灯 {len(c_single)}，全黑 {len(c_dark)}"
+                 + (f" —— {sorted(set(c_single))[:6]}" if c_single else ""),
+                 both_leds_reach._rule["why"], WARN)
 
 
 # =============================================================================

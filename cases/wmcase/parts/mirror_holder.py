@@ -27,8 +27,8 @@ from __future__ import annotations
 
 from build123d import Axis, Box, Part, Plane, Pos
 
-from ..geometry import bx, cyl_z, mirror_x, safe_fillet, yz_plate
-from ..layout import mirror_frame
+from ..geometry import bx, cyl_z, mirror_x, safe_fillet, yz_plate  # noqa: F401
+from ..layout import holder_rear_cut_y, holder_top_z, mirror_frame
 from ..params import Config
 
 
@@ -70,12 +70,26 @@ def plate_length(cfg: Config) -> float:
 # =============================================================================
 
 def build_plate(cfg: Config) -> Part:
-    """托板本体（还没开 T 型槽）。"""
-    c = cfg.case
+    """
+    托板本体（还没开 T 型槽）。
+
+    后端刻意**补一段方料**再交给竖直切面去切。不补的话，竖直切面正好落在
+    端部 R2 圆角里面，切出来是一片 0.15mm 的羽边 ——
+    `DFAM-02` 的壁厚采样当场量到了，渲染图上完全看不出来。
+
+    > **在一个被切掉的端面上做圆角是白做的，而且会留下羽边。**
+    > 先把要切的那一段做成方的，再切。
+    """
+    c, m = cfg.case, cfg.mfg
     z0, z1 = plate_z_range(cfg)
-    plate = (mirror_frame(cfg) * Pos(0, 0, (z0 + z1) / 2)
-             * Box(c.holder_plate_w, plate_length(cfg), z1 - z0))
-    return safe_fillet(plate, plate.edges().filter_by(Axis.X), 2.0)
+    loc = mirror_frame(cfg)
+    pl = plate_length(cfg)
+    plate = loc * Pos(0, 0, (z0 + z1) / 2) * Box(c.holder_plate_w, pl, z1 - z0)
+    plate = safe_fillet(plate, plate.edges().filter_by(Axis.X), 2.0)
+    #  覆盖住后端圆角（往前吃 4mm）并往后伸出 6mm，全部交给 build_rear_trim 去切
+    plate += (loc * Pos(0, pl / 2 + 1.0, (z0 + z1) / 2)
+              * Box(c.holder_plate_w, 10.0, z1 - z0))
+    return plate
 
 
 def build_t_slot(cfg: Config) -> Part:
@@ -105,6 +119,13 @@ def build_t_slot(cfg: Config) -> Part:
     # 开口：穿透唇口那一层，宽度收窄，两侧各留 holder_lip
     mouth = (loc * Pos(0, y_off, lip_t / 2)
              * Box(o.mirror_w - 2 * c.holder_lip, slot_len, lip_t + 2 * m.eps))
+    #  ⚠ 槽的后端**保持**垂直于 45° 斜面（和镜片的后端面平行）。
+    #    试过改成竖直面（想让端壁等厚），结果是镜片装不进去 ——
+    #    镜片是一块矩形玻璃，它的后端面本来就是 45° 的那个方向，
+    #    竖直的槽底会把玻璃的后-背角切掉 91mm³（自检 FIT-03 当场报出来）。
+    #    **配合面的方向由外购件决定，不能为了让壁厚好看就改它。**
+    #    端壁因此是一个楔形（镀膜面高度处约 2mm，往上收到 0）——
+    #    那是一条棱，不是薄壁；`DFAM-02` 现在用"出射面要近似平行"过滤掉它。
     return deep + mouth
 
 
@@ -158,8 +179,22 @@ def build_pin_holes(cfg: Config) -> Part:
 #:   横梁虽然过中心，但 z 58~64 高于该处反射光束上缘（y=32 处约 53.8）。
 GRIP_EAR_X = (31.0, 39.0)   # 与 holder_bracket_x 一致（提手是支承片的延伸）
 GRIP_Y = (18.0, 34.0)          # 从支承片前缘伸到 y=34（越过立板前缘 y=22）
-GRIP_Z = (58.0, 64.0)
+GRIP_H = 6.0                   # 提手截面高；顶面**跟着削平面走**，见 grip_z_range
 GRIP_BAR_Y = (28.0, 34.0)      # 横梁：让人一只手就能提，也是防呆刻字的载体
+
+
+def grip_z_range(cfg: Config) -> tuple[float, float]:
+    """
+    提手的 Z 起止。顶面比削平面 :func:`layout.holder_top_z` 低 1mm。
+
+    **低 1mm 是为了不和削平面共面。** 原来提手顶写死 64，而削平面正好也算出
+    64 —— 两个面严丝合缝地重叠，布尔出来一圈零面积的退化三角形，
+    壁厚采样在那儿量到 0.45mm 的假薄壁。
+    这是 `TOPO-04` 那条教训的又一次复现：**共面的布尔要么留重叠，要么留间隙，
+    就是不能正好相切。**
+    """
+    top = holder_top_z(cfg) - 1.0
+    return (top - GRIP_H, top)
 
 
 def build_grip(cfg: Config) -> Part:
@@ -171,9 +206,10 @@ def build_grip(cfg: Config) -> Part:
     立板前缘只到 y=22，所以 y>22 的那段是完全敞开的，抓握没有障碍。
     """
     x0, x1 = GRIP_EAR_X
-    tab = bx(x0, x1, GRIP_Y[0], GRIP_Y[1], GRIP_Z[0], GRIP_Z[1])
+    gz0, gz1 = grip_z_range(cfg)
+    tab = bx(x0, x1, GRIP_Y[0], GRIP_Y[1], gz0, gz1)
     grip = mirror_x(tab)
-    grip += bx(-x1, x1, GRIP_BAR_Y[0], GRIP_BAR_Y[1], GRIP_Z[0], GRIP_Z[1])
+    grip += bx(-x1, x1, GRIP_BAR_Y[0], GRIP_BAR_Y[1], gz0, gz1)
     return safe_fillet(grip, grip.edges().filter_by(Axis.Z), 2.0)
 
 
@@ -190,7 +226,7 @@ def build_face_marker(cfg: Config) -> Part:
     字体不可用时降级成一个箭头三角形（永远不会因为字体问题让建模失败）。
     """
     depth = 0.6
-    z_top = GRIP_Z[1]
+    z_top = grip_z_range(cfg)[1]
     plane = Plane(origin=(0, (GRIP_BAR_Y[0] + GRIP_BAR_Y[1]) / 2, z_top - depth),
                   x_dir=(1, 0, 0), z_dir=(0, 0, 1))
     try:
@@ -207,12 +243,49 @@ def build_face_marker(cfg: Config) -> Part:
 #  总装
 # =============================================================================
 
+def build_rear_trim(cfg: Config) -> Part:
+    """
+    托板后端的**竖直**切面（去料）—— 让开停放的蓝色盖板。
+
+    为什么是竖直切而不是把镜片改短
+    ------------------------------
+    托板是一块沿 45° 斜面的板，两端自然是垂直于斜面的方端面。
+    那个"后上顶点"比镜片后缘还要朝墙侧多探出 ``(2·wall + mirror_t)/√2 ≈ 5mm``，
+    正好撞进翻开的蓝盖。如果靠缩短镜片来让开，5mm 全部从镜片长度上扣，
+    表盘外缘就要多丢一圈可见半径。
+
+    竖直切面让托板的后端**平行于**蓝盖那面墙停住 —— 同样的让位量，
+    镜片能多伸约 5mm。这就是"让零件的形状去贴合约束面，
+    而不是整体退让"的典型收益。
+    """
+    y = holder_rear_cut_y(cfg)
+    return bx(-120, 120, -200, y, -120, 300)
+
+
+def build_top_trim(cfg: Config) -> Part:
+    """
+    顶部削平（去料）—— 让"抬起 8mm 不撞天花板"在几何上不可能违反。
+
+    削到 ``ceiling_z − holder_lift_clear − holder_top_margin``。
+    这样 DIM-06 就不再依赖有人记得同步调整提手/支承片上的一堆高度常数：
+    银圈实测让天花板从 +77 降到 +74 时，整块托板自动跟着削了 3mm。
+
+    **把约束做进几何里，比写一条检查再去修它更可靠** —— 检查只会告诉你错了，
+    削平让它错不了。
+    """
+    return bx(-120, 120, -200, 200, holder_top_z(cfg), 400)
+
+
 def build_mirror_holder(cfg: Config) -> Part:
-    """托板总装：托板 + 提手 + 两片支承片 − T型槽 − 销孔 − 刻字。"""
-    holder = build_plate(cfg) + build_grip(cfg) + mirror_x(build_bracket_half(cfg))
+    """托板总装：托板 + 提手 + 两片支承片 − T型槽 − 销孔 − 刻字 − 后端/顶部裁切。"""
+    # 后端竖直切面只切**托板本体**：支承片的后端在 y=−21，本来就在蓝盖前面，
+    # 没必要跟着退（退了会丢掉后托台上的承压宽度）。
+    plate = build_plate(cfg) - build_rear_trim(cfg)
+    holder = plate + build_grip(cfg) + mirror_x(build_bracket_half(cfg))
     holder -= build_t_slot(cfg)
     holder -= build_pin_holes(cfg)
     holder -= build_face_marker(cfg)
+    holder -= build_top_trim(cfg)
     return holder
 
 

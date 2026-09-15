@@ -23,6 +23,7 @@ from typing import Callable
 
 from build123d import Part, Pos, Rot
 
+from .layout import board_snap_allow, dial_visible_y_min
 from .params import Config
 
 
@@ -44,6 +45,12 @@ class Step:
     note: str = ""
     pokayoke: str = ""             # 这一步靠什么防呆
     check_path: bool = True        # 是否需要沿路径做碰撞仿真
+    #: 这一步允许的**额外**干涉体积（mm³）。只有一种正当用途：
+    #: 路径上有**弹性件**（板卡的卡钩），它按设计就是要被顶开再弹回来的，
+    #: 布尔体积分不出"弹性让位"和"撞上了"。数值必须由几何算出来
+    #: （layout.board_snap_allow），**不许手填一个大数**——
+    #: 允许量定大了，真正的碰撞就藏在它下面，这一步的仿真等于没做。
+    snap_allow: float = 0.0
     #: 爆炸图里这个件往哪个方向拉开（**单位向量**）、拉多远（mm）。
     #: 方向就是它的装入方向的反向 —— 所以爆炸图看到的箭头方向
     #: 就是装配时零件该走的方向，不用再对着说明书猜。
@@ -66,25 +73,28 @@ def install_sequence(cfg: Config) -> list[Step]:
     c = cfg.case
     lift = c.collar_z1 - c.collar_z0 + 2.0
     return [
-        Step(0, "把水表的蓝色盖板向**墙侧**翻到底并确认它不回弹", "-",
+        Step(0, "把水表的蓝色盖板**合上**（装抱箍时保持关闭）", "-",
              present=("meter",), check_path=False, tool="徒手",
-             note=f"光学读表要求蓝盖常开。它只能朝墙侧（−Y）停放 —— 朝房间侧翻会"
-                  f"横在相机和 45° 镜之间，朝左右翻会挡 LED。"
-                  f"★ **必须翻到 ≥90°**（实测最大约 {cfg.meter.cover_open_deg:.0f}°）。"
-                  f"翻不到位的话镜片托板会被它卡住装不下去 —— 这是自检 FIT-14 "
-                  f"算出来的最小可行角，现场唯一需要确认的数字就是它。",
-             pokayoke="翻不到位时托板明显放不平，装的人立刻会发现 —— "
-                      "这算是一处'被动防呆'，但不能替代确认动作。"),
-        Step(1, "主体套上银圈，压到夹持带下沿到位", "body",
+             note="合上时盖板整个落在 Ø61.8 以内、高度只到 z≈10.8，"
+                  "抱箍连同座圈可以直接从上方套下去。"
+                  "翻开的盖板会立在 y≈−24 处、高到 z≈73，虽然座圈在墙侧留了"
+                  "让位口（±55°）能让它通过，但**合上再装**要稳当得多，"
+                  "也不会在往下压的时候把盖板别弯。",
+             pokayoke="座圈的墙侧让位口让『盖板开着也能装』成为可能，"
+                      "所以这一步做反了不会造成不可逆后果 —— "
+                      "**防呆的上策是让错误做法也不出事，其次才是让它做不到。**"),
+        Step(1, "主体套上银圈，**压到座圈贴住银圈顶面**", "body",
              path=((0, 0, lift), (0, 0, lift / 2), (0, 0, 0)),
              present=("meter",), ignore=("meter",),
              note=f"整机沿 −Z 落下 {lift:.1f}mm。16 条内棱单边过盈 "
-                  f"{cfg.meter.bezel_od / 2 - (cfg.meter.bezel_od / 2 - c.collar_rib_interf):.2f}mm，"
-                  f"需要稍用力；套不进去先检查银圈上有没有漆瘤。",
+                  f"{c.collar_rib_interf:.2f}mm，需要稍用力；套不进去先检查银圈有没有漆瘤。"
+                  f"★ **压到感觉不到继续下沉为止**：抱箍内壁上那圈座圈"
+                  f"（内径 Ø{2 * c.collar_seat_ir:.0f}）会坐死在银圈顶面上，"
+                  f"这是整机唯一的高度基准。压不到位镜片高度就不对，每台都要重新标 ROI。",
              pokayoke="剖分缝和夹紧耳都在 +Y 侧（面向房间），装反了螺栓够不着。",
              # 爆炸位移要越过**翻开的蓝盖**（顶端约 z=67），否则爆炸图里
              # 主体的抱箍会穿过蓝盖 —— 自检 SEQ-06 会报。
-             explode_dir=(0, 0, 1), explode_mm=82.0, explode_on_body=False),
+             explode_dir=(0, 0, 1), explode_mm=92.0, explode_on_body=False),
         Step(2, "拧紧两颗 M4 蝶形螺栓", "-", tool="徒手（蝶形螺丝）",
              present=("meter", "body"), check_path=False,
              note="上下两颗交替拧，各拧 2~3 圈轮换，避免夹持带张成 V 形。"
@@ -111,17 +121,26 @@ def install_sequence(cfg: Config) -> list[Step]:
                    (0, 0, c.board_lift / 2), (0, 0, 0)),
              present=("meter", "body"),
              tool="徒手",
+             snap_allow=board_snap_allow(cfg),
              note=f"**两段动作，顺序不能反**：先把板卡抬高约 {c.board_lift:.0f}mm 从后方水平"
                   f"推到底（这时板卡整个在下缘压唇之上），再松手让它落下 "
                   f"{c.board_lift:.0f}mm —— 落下后压唇扣住 PCB 下缘后角，板卡就取不出来了。"
                   "推到最后 6mm 时摄像头模组会被方腔的导向倒角自己引进去。"
+                  "★ 推到底会听到两声**咔**（两侧卡钩越过 PCB 后缘），落下时再一声"
+                  "（顶部压舌扣住 PCB 上缘）。**三声都听到才算装好** —— "
+                  "只推不落的话压舌还顶在板边上，板卡随时会倒出来。"
+                  "★ 拆板：从后开口伸进一字小螺丝刀，把两侧悬臂各往外撬 "
+                  f"{c.board_hook_overlap:.1f}mm，同时抬起 {c.board_lift:.0f}mm 后拉出。"
                   "★ SD 卡（如果还用）必须**在这一步之前**插好，装上以后够不着。",
              pokayoke="★ 前腔在 Z 方向不对称（SD 卡座偏上），板子上下颠倒或"
                       "前后调头都进不去（自检 POKA-04/05）。",
              explode_dir=(0, 1, 0), explode_mm=62.0),
-        Step(8, "把 EVA 泡棉贴在滑盖内侧", "-", present=("meter", "body", "board"),
+        Step(8, "把 EVA 泡棉贴在滑盖内侧", "foam", present=("meter", "body", "board"),
              check_path=False, tool="双面胶",
-             note=f"泡棉厚 {c.cover_foam_t:.0f}mm，装上滑盖后把板卡顶向前止挡面。",
+             note=f"泡棉厚 {c.cover_foam_t:.0f}mm。★ 它现在只是**减振垫**，"
+                  f"不再承担板卡的 +Y 定位 —— 定位交给下缘压唇和上端卡钩。"
+                  f"『靠泡棉顶住』本来就不算约束（自检里也测不出来），"
+                  f"实物一摇就掉正是这么来的。",
              explode_dir=(0, 1, 0), explode_mm=118.0),
         Step(9, "滑盖从吊舱顶部插入，竖直下滑到底", "slide_cover",
              path=((0, 0, 78), (0, 0, 40), (0, 0, 12), (0, 0, 3), (0, 0, 0)),
@@ -133,14 +152,28 @@ def install_sequence(cfg: Config) -> list[Step]:
         Step(10, "接 5V 电源线（底部水滴孔进线）", "-",
              present=("meter", "body", "board", "slide_cover"), check_path=False,
              note="进线孔朝下，防止楼道结露沿线倒灌。本地并 470~1000µF + 100nF。"),
-        Step(11, "【台面】把前表面镜从 T 型槽端口滑入托板", "mirror_glass",
+        Step(11, "把水表蓝盖向**墙侧**翻到底，确认它停住不回弹", "-",
+             present=("meter", "body", "board", "slide_cover"), check_path=False,
+             tool="徒手",
+             note=f"光学读表要求蓝盖常开。它只能朝墙侧（−Y）停放 —— 朝房间侧翻会横在"
+                  f"相机和 45° 镜之间，朝左右翻会挡 LED。"
+                  f"★ **必须翻到 ≥90°**（实测最大约 {cfg.meter.cover_open_deg:.0f}°）。"
+                  f"翻不到位的话镜片托板会被它顶住放不平 —— 这是自检 FIT-14 算出来的"
+                  f"最小可行角，也是现场唯一需要确认的角度。"
+                  f"★ 顺带确认一件事：翻开的盖板会挡住表盘**墙侧最外一圈**"
+                  f"（半径 {abs(dial_visible_y_min(cfg)):.1f}mm 以外那一圈）。"
+                  f"那一圈里不该有任何要读的东西 —— 如果四个指针小盘里有哪个"
+                  f"被切掉了边，**停在这里别往下装**，先反馈（自检 OPT-11）。",
+             pokayoke="翻不到位时托板明显放不平，装的人立刻会发现 —— "
+                      "这是被动防呆，不能替代确认动作。"),
+        Step(12, "【台面】把前表面镜从 T 型槽端口滑入托板", "mirror_glass",
              path=((0, 0, 0),), present=("mirror_holder",), check_path=False,
              tool="徒手 + 手套",
              note="镀膜面不可擦拭，只能气吹；划伤即报废，建议多备 2 片。",
              pokayoke="镜片是矩形玻璃，两面都能装 —— **这一处做不成几何防呆**。"
                       "托板横梁上刻了 COATED SIDE DOWN，装之前对一眼。",
              explode_mm=70.0),   # 方向沿 T 型槽滑入方向，见 exploded_offsets
-        Step(12, "把镜片托板垂直落到四根定位销上", "mirror_holder",
+        Step(13, "把镜片托板垂直落到四根定位销上", "mirror_holder",
              path=((0, 30, 8), (0, 20, 8), (0, 10, 8), (0, 0, 8), (0, 0, 3), (0, 0, 0)),
              present=("meter", "body", "board", "slide_cover"),
              note="先从 +Y 方向平移进来，再垂直落下。四根销进孔后托板自然坐平。",

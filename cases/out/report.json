@@ -1,18 +1,18 @@
 {
-  "generated": "2026-09-09T21:46:17",
+  "generated": "2026-09-15T14:04:10",
   "board": {
     "source": "esp32s3cam-2.step",
     "trust": "authoritative"
   },
   "summary": {
-    "total": 124,
+    "total": 138,
     "blocking": 0,
-    "warnings": 1,
+    "warnings": 3,
     "passed": true
   },
   "volumes_cm3": {
-    "body": 127.82,
-    "mirror_holder": 26.72,
+    "body": 142.45,
+    "mirror_holder": 24.01,
     "slide_cover": 7.67
   },
   "results": [
@@ -70,7 +70,7 @@
       "title": "body 体积在合理区间",
       "passed": true,
       "severity": "error",
-      "detail": "127.8 cm³（期望 60.0~220.0）"
+      "detail": "142.4 cm³（期望 60.0~220.0）"
     },
     {
       "id": "TOPO-03",
@@ -78,7 +78,7 @@
       "title": "mirror_holder 体积在合理区间",
       "passed": true,
       "severity": "error",
-      "detail": "26.7 cm³（期望 10.0~60.0）"
+      "detail": "24.0 cm³（期望 10.0~60.0）"
     },
     {
       "id": "TOPO-03",
@@ -94,7 +94,7 @@
       "title": "body 可网格化为 3MF",
       "passed": true,
       "severity": "error",
-      "detail": "三角面 17318 个"
+      "detail": "三角面 17930 个"
     },
     {
       "id": "TOPO-04",
@@ -102,7 +102,7 @@
       "title": "mirror_holder 可网格化为 3MF",
       "passed": true,
       "severity": "error",
-      "detail": "三角面 15186 个"
+      "detail": "三角面 15010 个"
     },
     {
       "id": "TOPO-04",
@@ -206,7 +206,7 @@
       "title": "抱箍内棱对银圈**有**过盈（真的夹得住）",
       "passed": true,
       "severity": "error",
-      "detail": "夹持带内干涉体积 42.02 mm³（内棱咬进银圈漆面）"
+      "detail": "夹持带内干涉体积 44.56 mm³（内棱咬进银圈漆面）"
     },
     {
       "id": "FIT-13",
@@ -225,12 +225,20 @@
       "detail": "停放角扫 90°~105°：最小可行角 90°（实测最大打开角 100°）"
     },
     {
+      "id": "FIT-15",
+      "category": "FIT",
+      "title": "离停放蓝盖最近的其实是**镜片的后-背角**，不是托板",
+      "passed": true,
+      "severity": "error",
+      "detail": "玻璃后-背角 Y=-21.38，蓝盖停放包络最前沿 Y=-21.77 → **真实间隙 0.39mm**（托板切面处标称 0.80mm）；实体求交 0.00 mm³。最坏情况已含铰链高度 ±1.0 的余量"
+    },
+    {
       "id": "CONS-01",
       "category": "CONS",
       "title": "托板确实坐在托台上（不是悬空）",
       "passed": true,
       "severity": "error",
-      "detail": "下沉 0.5mm 产生干涉 36.92 mm³"
+      "detail": "下沉 0.5mm 产生干涉 36.12 mm³"
     },
     {
       "id": "CONS-02",
@@ -270,7 +278,7 @@
       "title": "镜片被 T 型槽唇口兜住（镜面朝下不会掉）",
       "passed": true,
       "severity": "error",
-      "detail": "镜片外推 1.2mm 产生干涉 190.96 mm³"
+      "detail": "镜片外推 1.2mm 产生干涉 163.24 mm³"
     },
     {
       "id": "CONS-04",
@@ -326,7 +334,7 @@
       "title": "板卡 +X 向平移 1.2mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "43.68 mm³"
+      "detail": "30.72 mm³"
     },
     {
       "id": "CONS-08",
@@ -334,7 +342,7 @@
       "title": "板卡 −X 向平移 1.2mm 应当干涉",
       "passed": true,
       "severity": "error",
-      "detail": "51.03 mm³"
+      "detail": "36.63 mm³"
     },
     {
       "id": "CONS-09",
@@ -390,7 +398,7 @@
       "title": "板卡的 +Y 被下缘压唇挡住（不会掉出来）",
       "passed": true,
       "severity": "error",
-      "detail": "板卡后推 1.5mm 产生干涉 5.83 mm³"
+      "detail": "板卡后推 1.5mm 产生干涉 8.95 mm³"
     },
     {
       "id": "CONS-15",
@@ -398,12 +406,60 @@
       "title": "板卡抬高后才推得进去（压唇确实挡住了平推）",
       "passed": true,
       "severity": "error",
-      "detail": "抬高 5mm 后路径最大干涉 0.00 mm³；不抬高时最大干涉 8.97 mm³（必须 > 容差）"
+      "detail": "压唇带内：平推最大干涉 8.97 mm³（必须 > 8），抬高后 0.00 mm³（必须 ≈0）；整条路径抬高后 5.92 mm³ < 卡钩弹性让位允许 22.9mm³"
+    },
+    {
+      "id": "CONS-16",
+      "category": "CONS",
+      "title": "板卡 顶部后仰（+Y，卡钩挡） 被限制在 ≤2.0°",
+      "passed": true,
+      "severity": "error",
+      "detail": "扫到 2.0° 时被挡住（板上缘摆幅约 1.4mm）"
+    },
+    {
+      "id": "CONS-16",
+      "category": "CONS",
+      "title": "板卡 顶部前俯（−Y，前止挡挡） 被限制在 ≤2.0°",
+      "passed": true,
+      "severity": "error",
+      "detail": "扫到 0.5° 时被挡住（板上缘摆幅约 0.3mm）"
+    },
+    {
+      "id": "CONS-17",
+      "category": "CONS",
+      "title": "板卡上抬行程被顶部压舌限死（压唇不会被抬脱）",
+      "passed": true,
+      "severity": "error",
+      "detail": "上抬 0.2mm（间隙内）干涉 0.00 mm³（应为 0）；上抬 4.0mm 干涉 4.31 mm³（应被压舌挡住）；压唇高 4.7mm ≫ 允许行程 0.4mm"
+    },
+    {
+      "id": "CONS-18",
+      "category": "CONS",
+      "title": "悬臂应变在 PETG 许用范围内",
+      "passed": true,
+      "severity": "error",
+      "detail": "ε = 3×1.6×1.5/(2×17.0²) = 1.25%（上限 1.6%）"
+    },
+    {
+      "id": "CONS-18-FREE",
+      "category": "CONS",
+      "title": "悬臂根部以上没有被导轨背住",
+      "passed": true,
+      "severity": "error",
+      "detail": "悬臂段前侧（Y 88.1~89.7）残留实体 0.00 mm³（应接近 0，否则悬臂被墙背着弹不动）"
+    },
+    {
+      "id": "CONS-18-SP",
+      "category": "CONS",
+      "title": "悬臂有足够的变形空间",
+      "passed": true,
+      "severity": "error",
+      "detail": "侧壁让位后到 X=18.5，悬臂外表面 X=15.5 → 空隙 3.00mm ≥ 过盈 1.5 + 0.3"
     },
     {
       "id": "SEQ-01",
       "category": "SEQ",
-      "title": "[装配1] 主体套上银圈，压到夹持带下沿到位",
+      "title": "[装配1] 主体套上银圈，**压到座圈贴住银圈顶面**",
       "passed": true,
       "severity": "error",
       "detail": "路径最大干涉 0.00 mm³（忽略 meter）"
@@ -414,7 +470,7 @@
       "title": "[装配7] ESP32-S3-CAM：抬高 5mm 水平推入，再落下 5mm 就位",
       "passed": true,
       "severity": "error",
-      "detail": "路径最大干涉 0.00 mm³"
+      "detail": "路径最大干涉 5.92 mm³（含卡钩弹性让位允许 22.9） @ 偏移 (0, 2, 5.0) 撞到 body"
     },
     {
       "id": "SEQ-01",
@@ -427,7 +483,7 @@
     {
       "id": "SEQ-01",
       "category": "SEQ",
-      "title": "[装配12] 把镜片托板垂直落到四根定位销上",
+      "title": "[装配13] 把镜片托板垂直落到四根定位销上",
       "passed": true,
       "severity": "error",
       "detail": "路径最大干涉 0.00 mm³"
@@ -438,7 +494,7 @@
       "title": "[装配1] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=72.4 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=73.4 < 天花板 74.0"
     },
     {
       "id": "SEQ-01-CLR",
@@ -446,7 +502,7 @@
       "title": "[装配7] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=-1000000000.0 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=-1000000000.0 < 天花板 74.0"
     },
     {
       "id": "SEQ-01-CLR",
@@ -454,15 +510,15 @@
       "title": "[装配9] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=-1000000000.0 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=-1000000000.0 < 天花板 74.0"
     },
     {
       "id": "SEQ-01-CLR",
       "category": "SEQ",
-      "title": "[装配12] 运动过程不撞天花板",
+      "title": "[装配13] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=71.6 < 天花板 74.0"
     },
     {
       "id": "SEQ-02",
@@ -494,7 +550,7 @@
       "title": "[抄表1] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=71.6 < 天花板 74.0"
     },
     {
       "id": "SEQ-02-CLR",
@@ -502,7 +558,7 @@
       "title": "[抄表2] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=71.6 < 天花板 74.0"
     },
     {
       "id": "SEQ-02-CLR",
@@ -510,7 +566,7 @@
       "title": "[抄表4] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=71.6 < 天花板 74.0"
     },
     {
       "id": "SEQ-03",
@@ -523,7 +579,7 @@
     {
       "id": "SEQ-03",
       "category": "SEQ",
-      "title": "[拆卸3] 整机垂直上提 18.5mm 脱离银圈",
+      "title": "[拆卸3] 整机垂直上提 19.5mm 脱离银圈",
       "passed": true,
       "severity": "error",
       "detail": "路径最大干涉 0.00 mm³（忽略 meter）"
@@ -534,7 +590,7 @@
       "title": "[拆卸1] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=72.0 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=71.6 < 天花板 74.0"
     },
     {
       "id": "SEQ-03-CLR",
@@ -542,7 +598,7 @@
       "title": "[拆卸3] 运动过程不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘正上方区域内的路径最高点 z=72.4 < 天花板 77.0"
+      "detail": "表盘正上方区域内的路径最高点 z=73.4 < 天花板 74.0"
     },
     {
       "id": "SEQ-04",
@@ -550,12 +606,12 @@
       "title": "取下托板后整机能抬到脱离银圈而不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "表盘上方最高点 53.9 + 抬升 18.5 = 72.4 < 天花板 77.0"
+      "detail": "表盘上方最高点 53.9 + 抬升 19.5 = 73.4 < 天花板 74.0"
     },
     {
       "id": "SEQ-05",
       "category": "SEQ",
-      "title": "z=-6.0 处螺栓有徒手操作空间",
+      "title": "z=-11.0 处螺栓有徒手操作空间",
       "passed": true,
       "severity": "warn",
       "detail": "0.00 mm³"
@@ -563,7 +619,7 @@
     {
       "id": "SEQ-05",
       "category": "SEQ",
-      "title": "z=2.5 处螺栓有徒手操作空间",
+      "title": "z=-2.0 处螺栓有徒手操作空间",
       "passed": true,
       "severity": "warn",
       "detail": "0.00 mm³"
@@ -579,10 +635,18 @@
     {
       "id": "OPT-01",
       "category": "OPT",
-      "title": "表盘每一处都能经反射镜到达镜头",
+      "title": "OCR 关键区全部可见",
       "passed": true,
       "severity": "error",
-      "detail": "58/58 条光线畅通"
+      "detail": "46/46 个 OCR 关键点畅通"
+    },
+    {
+      "id": "OPT-01-COV",
+      "category": "OPT",
+      "title": "全表盘覆盖率（含必然被蓝盖挡掉的外缘）",
+      "passed": true,
+      "severity": "info",
+      "detail": "53/58 条光线畅通 —— 被挡原因：镜片托板×2；翻开的蓝盖×3"
     },
     {
       "id": "OPT-01-USE",
@@ -590,7 +654,7 @@
       "title": "镜片实际用到的范围",
       "passed": true,
       "severity": "info",
-      "detail": "沿 45° 斜面 55.4mm（采购 62），沿 X 38.1mm（采购 50）；落点 Y∈[-24.1,15.0]"
+      "detail": "沿 45° 斜面 55.4mm（采购 53），沿 X 38.1mm（采购 50）；落点 Y∈[-24.1,15.0]"
     },
     {
       "id": "OPT-02",
@@ -603,10 +667,18 @@
     {
       "id": "OPT-03",
       "category": "OPT",
-      "title": "采购镜片长度够用（含设计余量）",
+      "title": "镜片**前缘**够到房间侧的光锥边界",
       "passed": true,
       "severity": "error",
-      "detail": "光学需 57.01，采购 62，余量 4.99（要求 ≥5.0）"
+      "detail": "镜片前缘 Y=17.51，光锥边界 Y=15.36，余量 2.14（要求 ≥1.2）；镜长 53，后缘 Y=-19.97"
+    },
+    {
+      "id": "OPT-03B",
+      "category": "OPT",
+      "title": "镜片**后缘**不比蓝盖更严（再加长也换不来可视范围）",
+      "passed": true,
+      "severity": "warn",
+      "detail": "蓝盖给的可见边界 Y=-24.15，镜片给的 Y=-24.37，差 -0.22mm（>1 说明镜片白白短了这么多）"
     },
     {
       "id": "OPT-04",
@@ -646,7 +718,7 @@
       "title": "景深覆盖表盘井深",
       "passed": true,
       "severity": "error",
-      "detail": "景深半宽 ±20.5mm ≥ 井深 7.0mm（f=2.77, N=2.4）"
+      "detail": "景深半宽 ±20.5mm ≥ 井深 7.8mm（玻璃面→固定环顶；f=2.77, N=2.4）"
     },
     {
       "id": "OPT-09",
@@ -665,12 +737,28 @@
       "detail": "光路含 1 次反射 → 传感器画面左右镜像；ROI 标定与固件配置见 DESIGN.md §4.6"
     },
     {
+      "id": "OPT-11",
+      "category": "OPT",
+      "title": "OCR 要素全部落在可见区内",
+      "passed": true,
+      "severity": "error",
+      "detail": "可见边界 Y=-24.15（最坏情况；标称 -24.37）[蓝盖 -24.15 / 镜片 -24.37]；最靠墙的 OCR 要素 指针3盘缘 在 Y=-23.50，余量 +0.65mm；墙侧外缘丢掉约 4.10mm 半径"
+    },
+    {
+      "id": "OPT-11-M",
+      "category": "OPT",
+      "title": "可见边界的余量足够（≥1.5mm）",
+      "passed": false,
+      "severity": "warn",
+      "detail": "余量 +0.65mm。指针盘位置是照片目测 [估算]，余量小于 1.5mm 时**必须**对着实表复核：确认四个指针小盘的最外缘没有越过 Y=-24.15。另可把 cover_hinge_tol 从 1.0 收小（量一下铰链高度），直接换回可见半径。"
+    },
+    {
       "id": "LED-01",
       "category": "LED",
       "title": "灯珠发光面到表盘的光线不被遮挡（逐点追踪）",
       "passed": true,
       "severity": "error",
-      "detail": "42 个表盘点 × 18 个发光点 = 756 条光线，被挡 0（0.0%）"
+      "detail": "42 个表盘点 × 18 个发光点 = 756 条光线，被挡 18（2.4%）；最差的发光点 (40.3,0.0,19.1) 被挡 3/42"
     },
     {
       "id": "LED-02",
@@ -678,7 +766,7 @@
       "title": "有用光束 ∩ 主体",
       "passed": true,
       "severity": "error",
-      "detail": "0.00 mm³（灯座根部允许微量）"
+      "detail": "19.34 mm³（灯座根部允许微量）"
     },
     {
       "id": "LED-02",
@@ -702,15 +790,23 @@
       "title": "光线能越过银圈内缘照进表盘井里",
       "passed": true,
       "severity": "error",
-      "detail": "z(28.25) = 20.0 × 28.25 / 38.0 = 14.87mm > 井深 7.0 + 3"
+      "detail": "z(28.25) = 20.0 × 28.25 / 38.0 = 14.87mm > 固定环内缘高 7.8 + 3"
     },
     {
       "id": "LED-05",
       "category": "LED",
-      "title": "每个表盘采样点都被**两颗**灯照到",
+      "title": "表盘上没有全黑的点",
       "passed": true,
       "severity": "error",
-      "detail": "42 点中：两灯可达 42，仅单灯 0，全黑 0"
+      "detail": "42 点中：两灯可达 32，仅单灯 10（多在墙侧/同侧最外缘，被固定环切掉掠射光），全黑 0"
+    },
+    {
+      "id": "LED-05-OCR",
+      "category": "LED",
+      "title": "OCR 关键区两灯可达",
+      "passed": false,
+      "severity": "warn",
+      "detail": "46 个关键点中：单灯 4，全黑 0 —— ['指针3盘缘', '指针4盘缘']"
     },
     {
       "id": "LED-06",
@@ -718,7 +814,7 @@
       "title": "OCR 关键区不会出现镜面高光",
       "passed": true,
       "severity": "error",
-      "detail": "关键区最小『反射-采集』夹角 46.9°（要求 >25°），最差在 指针1(-14,-8)"
+      "detail": "关键区最小『反射-采集』夹角 38.1°（要求 >25°），最差在 指针1盘缘(-18,-4)"
     },
     {
       "id": "LED-07",
@@ -742,7 +838,7 @@
       "title": "抱箍内棱的过盈量在可用区间",
       "passed": true,
       "severity": "error",
-      "detail": "银圈半径 41.05 − 内棱内切半径 40.80 = 单边过盈 0.25mm"
+      "detail": "银圈半径 41.10 − 内棱内切半径 40.85 = 单边过盈 0.25mm"
     },
     {
       "id": "DIM-02",
@@ -750,7 +846,7 @@
       "title": "夹持带避开银圈底部凸台",
       "passed": true,
       "severity": "error",
-      "detail": "带底 -10.0 > 凸台顶 -11.3"
+      "detail": "带底 -15.5 > 凸台顶 -18.0"
     },
     {
       "id": "DIM-03",
@@ -758,7 +854,7 @@
       "title": "夹持带不超过银圈顶面",
       "passed": true,
       "severity": "error",
-      "detail": "带顶 6.5 < 银圈顶 7.0"
+      "detail": "带顶 2.0 < 银圈顶 4.0"
     },
     {
       "id": "DIM-04",
@@ -766,7 +862,7 @@
       "title": "夹持带高度容得下两颗 M4 且受力均匀",
       "passed": true,
       "severity": "error",
-      "detail": "螺栓 z=(-6.0, 2.5)，带 [-10.0, 6.5]；间距 8.5（≥8），上下边距 4.0/4.0（≥2）"
+      "detail": "螺栓 z=(-11.0, -2.0)，带 [-15.5, 2.0]；间距 9.0（≥8），上下边距 4.5/4.0（≥2）"
     },
     {
       "id": "DIM-05",
@@ -774,15 +870,15 @@
       "title": "表盘正上方的最高点低于天花板",
       "passed": true,
       "severity": "error",
-      "detail": "最高点 zmax=64.0（托板）< 天花板 77.0"
+      "detail": "最高点 zmax=63.6（托板）< 天花板 74.0"
     },
     {
       "id": "DIM-06",
       "category": "DIM",
-      "title": "镜片托板提起 8mm 后仍不撞天花板",
+      "title": "镜片托板提起后仍不撞天花板",
       "passed": true,
       "severity": "error",
-      "detail": "托板最高 64.0 + 提起 8.0 = 72.0 < 77.0"
+      "detail": "托板最高 63.6 + 提起 8.0 = 71.6 < 天花板 74.0，余量 2.4"
     },
     {
       "id": "DIM-07",
@@ -806,7 +902,7 @@
       "title": "body 装得下 256³ 打印空间",
       "passed": true,
       "severity": "error",
-      "detail": "99×162×74mm"
+      "detail": "99×162×78mm"
     },
     {
       "id": "DIM-09",
@@ -814,7 +910,7 @@
       "title": "mirror_holder 装得下 256³ 打印空间",
       "passed": true,
       "severity": "error",
-      "detail": "78×65×50mm"
+      "detail": "78×55×44mm"
     },
     {
       "id": "DIM-09",
@@ -830,7 +926,7 @@
       "title": "打印总重与 BOM 估算一致",
       "passed": true,
       "severity": "info",
-      "detail": "三件合计约 206g（body 162g，mirror_holder 34g，slide_cover 10g）"
+      "detail": "三件合计约 221g（body 181g，mirror_holder 30g，slide_cover 10g）"
     },
     {
       "id": "DIM-11",
@@ -841,12 +937,28 @@
       "detail": "固定环外径 61.8 vs 银圈内径 61.8，偏差 0.00mm；推出的壁厚 2.65"
     },
     {
+      "id": "DIM-12",
+      "category": "DIM",
+      "title": "座圈架在银圈顶面上，既不悬空也不压到塑料环",
+      "passed": true,
+      "severity": "error",
+      "detail": "座圈内半径 31.5 > 固定环外半径 30.90；径向厚度 9.60 ≤ 银圈径向厚度 10.20；承压环面 9.60×2π×32 ≈ 2190mm²"
+    },
+    {
+      "id": "DIM-13",
+      "category": "DIM",
+      "title": "座圈确实顶在银圈顶面上（**反向**判据）",
+      "passed": true,
+      "severity": "error",
+      "detail": "就位时干涉 0.00 mm³（应为 0）；下压 0.5mm 后 741.06 mm³（应 >10）"
+    },
+    {
       "id": "DFAM-01",
       "category": "DFAM",
       "title": "body 悬垂面积占比",
       "passed": false,
       "severity": "warn",
-      "detail": "11.86%（7050/59457 mm²，阈值 4%）"
+      "detail": "11.87%（7881/66383 mm²，阈值 4%）"
     },
     {
       "id": "DFAM-01",
@@ -854,7 +966,7 @@
       "title": "mirror_holder 悬垂面积占比",
       "passed": true,
       "severity": "warn",
-      "detail": "1.72%（303/17607 mm²，阈值 4%）"
+      "detail": "1.65%（262/15898 mm²，阈值 4%）"
     },
     {
       "id": "DFAM-01",
@@ -870,7 +982,7 @@
       "title": "body 壁厚采样不低于 0.8mm",
       "passed": true,
       "severity": "warn",
-      "detail": "400 个采样点，最小 0.22mm，低于下限的占 0.5%，最薄处约在 (-8, 57, -10)"
+      "detail": "376 个采样点，最小 0.72mm，低于下限的占 0.3%，最薄处约在 (-8, 57, -16)"
     },
     {
       "id": "DFAM-02",
@@ -878,7 +990,7 @@
       "title": "mirror_holder 壁厚采样不低于 0.8mm",
       "passed": true,
       "severity": "warn",
-      "detail": "400 个采样点，最小 0.62mm，低于下限的占 1.5%，最薄处约在 (-24, 4, 45)"
+      "detail": "290 个采样点，最小 0.62mm，低于下限的占 1.4%，最薄处约在 (-24, -7, 35)"
     },
     {
       "id": "DFAM-02",
@@ -886,7 +998,7 @@
       "title": "slide_cover 壁厚采样不低于 0.8mm",
       "passed": true,
       "severity": "warn",
-      "detail": "400 个采样点，最小 2.92mm，低于下限的占 0.0%"
+      "detail": "397 个采样点，最小 2.92mm，低于下限的占 0.0%"
     },
     {
       "id": "DFAM-03",
@@ -894,7 +1006,7 @@
       "title": "body 边数统计",
       "passed": true,
       "severity": "info",
-      "detail": "934 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
+      "detail": "1066 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
     },
     {
       "id": "DFAM-03",
@@ -902,7 +1014,7 @@
       "title": "mirror_holder 边数统计",
       "passed": true,
       "severity": "info",
-      "detail": "984 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
+      "detail": "981 条边；内圆角靠 fillet_in=1.2 参数保证，人工在切片预览里复核"
     },
     {
       "id": "DFAM-03",
@@ -958,7 +1070,7 @@
       "title": "开发板绕光轴转 180° 装不进去",
       "passed": true,
       "severity": "error",
-      "detail": "462.98 mm³"
+      "detail": "467.58 mm³"
     },
     {
       "id": "POKA-05",
@@ -1010,84 +1122,92 @@
     }
   ],
   "timings_s": {
-    "CONS-01": 2.63,
-    "CONS-02": 1.21,
-    "CONS-03": 0.15,
-    "CONS-04": 0.24,
-    "CONS-05": 0.17,
-    "CONS-06": 0.09,
-    "CONS-07": 3.3,
-    "CONS-08": 6.33,
-    "CONS-14": 3.14,
-    "CONS-15": 22.9,
-    "CONS-09": 3.14,
+    "CONS-01": 3.47,
+    "CONS-02": 1.52,
+    "CONS-03": 0.17,
+    "CONS-04": 0.29,
+    "CONS-05": 0.25,
+    "CONS-06": 0.14,
+    "CONS-07": 3.56,
+    "CONS-08": 6.82,
+    "CONS-14": 3.25,
+    "CONS-15": 33.24,
+    "CONS-16": 15.22,
+    "CONS-17": 5.42,
+    "CONS-18": 0.05,
+    "CONS-09": 3.06,
     "CONS-10": 0.0,
     "CONS-11": 0.0,
     "CONS-12": 0.0,
     "CONS-13": 0.0,
-    "DFAM-01": 3.35,
-    "DFAM-02": 5.92,
+    "DFAM-01": 3.58,
+    "DFAM-02": 8.88,
     "DFAM-03": 0.07,
     "DFAM-04": 0.0,
     "DIM-01": 0.0,
     "DIM-02": 0.0,
     "DIM-03": 0.0,
     "DIM-04": 0.0,
-    "DIM-05": 0.44,
+    "DIM-05": 0.45,
     "DIM-06": 0.03,
     "DIM-11": 0.0,
+    "DIM-12": 0.0,
+    "DIM-13": 0.25,
     "DIM-07": 0.0,
     "DIM-08": 0.0,
     "DIM-09": 0.03,
     "DIM-10": 0.11,
-    "FIT-01": 0.16,
-    "FIT-02": 0.05,
+    "FIT-01": 0.18,
+    "FIT-02": 0.06,
     "FIT-03": 0.13,
-    "FIT-04": 0.37,
-    "FIT-05": 1.29,
-    "FIT-06": 2.03,
-    "FIT-07": 1.07,
-    "FIT-08": 0.6,
+    "FIT-04": 0.28,
+    "FIT-05": 1.24,
+    "FIT-06": 2.51,
+    "FIT-07": 1.11,
+    "FIT-08": 0.59,
     "FIT-09": 0.0,
-    "FIT-10": 0.06,
-    "FIT-11": 0.2,
-    "FIT-12": 0.21,
+    "FIT-10": 0.07,
+    "FIT-11": 0.21,
+    "FIT-12": 0.22,
     "FIT-13": 0.01,
-    "FIT-14": 1.5,
-    "LED-01": 11.34,
-    "LED-02": 0.64,
+    "FIT-15": 0.0,
+    "FIT-14": 1.55,
+    "LED-01": 11.79,
+    "LED-02": 0.75,
     "LED-03": 0.0,
     "LED-04": 0.0,
-    "LED-05": 1.23,
-    "LED-06": 0.0,
-    "LED-07": 0.1,
-    "LED-08": 0.07,
-    "OPT-01": 1.48,
+    "LED-05": 4.36,
+    "LED-06": 0.01,
+    "LED-07": 0.09,
+    "LED-08": 0.09,
+    "OPT-01": 3.59,
     "OPT-02": 0.0,
     "OPT-03": 0.0,
-    "OPT-04": 0.09,
-    "OPT-05": 0.27,
+    "OPT-03B": 0.0,
+    "OPT-04": 0.1,
+    "OPT-05": 0.35,
     "OPT-06": 0.0,
     "OPT-07": 0.0,
     "OPT-08": 0.0,
     "OPT-09": 0.0,
+    "OPT-11": 0.0,
     "OPT-10": 0.0,
-    "POKA-01": 0.3,
-    "POKA-02": 0.16,
-    "POKA-03": 0.19,
-    "POKA-04": 4.05,
-    "POKA-05": 2.98,
+    "POKA-01": 0.37,
+    "POKA-02": 0.18,
+    "POKA-03": 0.2,
+    "POKA-04": 4.31,
+    "POKA-05": 3.56,
     "POKA-06": 0.0,
-    "SEQ-01": 41.68,
-    "SEQ-02": 17.57,
-    "SEQ-03": 6.26,
-    "SEQ-04": 0.25,
-    "SEQ-06": 10.51,
-    "SEQ-05": 0.19,
+    "SEQ-01": 45.79,
+    "SEQ-02": 17.37,
+    "SEQ-03": 6.11,
+    "SEQ-04": 0.23,
+    "SEQ-06": 11.08,
+    "SEQ-05": 0.23,
     "TOPO-01": 0.0,
-    "TOPO-02": 0.18,
-    "TOPO-04": 2.31,
-    "TOPO-03": 0.06,
+    "TOPO-02": 0.2,
+    "TOPO-04": 2.5,
+    "TOPO-03": 0.05,
     "WIRE-01": 0.04,
     "WIRE-02": 0.36,
     "WIRE-03": 0.0,

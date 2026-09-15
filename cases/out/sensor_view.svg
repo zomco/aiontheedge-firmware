@@ -133,15 +133,15 @@
 <circle cx="553.2" cy="426.8" r="2.2" fill="#3fb950"/>
 <circle cx="540.9" cy="440.9" r="2.2" fill="#3fb950"/>
 <circle cx="526.8" cy="453.2" r="2.2" fill="#3fb950"/>
-<circle cx="511.3" cy="463.5" r="2.2" fill="#3fb950"/>
-<circle cx="494.6" cy="471.8" r="2.2" fill="#3fb950"/>
-<circle cx="476.9" cy="477.8" r="2.2" fill="#3fb950"/>
-<circle cx="458.6" cy="481.4" r="2.2" fill="#3fb950"/>
-<circle cx="440.0" cy="482.6" r="2.2" fill="#3fb950"/>
-<circle cx="421.4" cy="481.4" r="2.2" fill="#3fb950"/>
-<circle cx="403.1" cy="477.8" r="2.2" fill="#3fb950"/>
-<circle cx="385.4" cy="471.8" r="2.2" fill="#3fb950"/>
-<circle cx="368.7" cy="463.5" r="2.2" fill="#3fb950"/>
+<circle cx="511.3" cy="463.5" r="3.2" fill="#f85149"/>
+<circle cx="494.6" cy="471.8" r="3.2" fill="#f85149"/>
+<circle cx="476.9" cy="477.8" r="3.2" fill="#f85149"/>
+<circle cx="458.6" cy="481.4" r="3.2" fill="#f85149"/>
+<circle cx="440.0" cy="482.6" r="3.2" fill="#f85149"/>
+<circle cx="421.4" cy="481.4" r="3.2" fill="#f85149"/>
+<circle cx="403.1" cy="477.8" r="3.2" fill="#f85149"/>
+<circle cx="385.4" cy="471.8" r="3.2" fill="#f85149"/>
+<circle cx="368.7" cy="463.5" r="3.2" fill="#f85149"/>
 <circle cx="353.2" cy="453.2" r="2.2" fill="#3fb950"/>
 <circle cx="339.1" cy="440.9" r="2.2" fill="#3fb950"/>
 <circle cx="326.8" cy="426.8" r="2.2" fill="#3fb950"/>
@@ -159,7 +159,7 @@
 <circle cx="510.7" cy="430.9" r="2.2" fill="#3fb950"/>
 <circle cx="369.3" cy="430.9" r="2.2" fill="#3fb950"/>
 <text x="40" y="664" font-size="13" fill="#24292f">模拟画幅 1600×1200　总光程 122mm　单字符 44.4px</text>
-<text x="40" y="684" font-size="13" fill="#24292f">光线追踪 154/154 通过　绿=可见　红=被挡　绿圈=可视表盘 Ø56.5　蓝虚线=设计 ROI R29　橙框=字轮窗</text>
+<text x="40" y="684" font-size="13" fill="#24292f">光线追踪 145/154 通过　绿=可见　红=被挡　绿圈=可视表盘 Ø56.5　蓝虚线=设计 ROI R29　橙框=字轮窗</text>
 <text x="40" y="704" font-size="13" fill="#24292f">⚠ 画面左右镜像（光路含 1 次反射）—— 固件标 ROI 时必须按这个方向</text>
 <rect x="40" y="616" width="22.2" height="6" fill="#f0883e"/>
 <text x="68" y="623" font-size="12" fill="#f0883e">1 个数字 ≈ 44px</text>

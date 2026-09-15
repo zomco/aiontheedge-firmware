@@ -17,7 +17,7 @@ from __future__ import annotations
 import collections
 import math
 
-from .. import optics as ox
+from .. import layout as lay, optics as ox
 from . import ERROR, INFO, WARN, Result, fmt, inter_vol, rule
 
 
@@ -25,22 +25,61 @@ from . import ERROR, INFO, WARN, Result, fmt, inter_vol, rule
 #  射线追踪（核心）
 # =============================================================================
 
-@rule("OPT-01", "OPT", "表盘每一处都能经反射镜到达镜头（逐点光线追踪）",
+def _camera_blockers(design) -> dict:
+    """
+    会挡住"表盘 → 镜 → 镜头"这条光路的**全部**实体。
+
+    ⚠ 这里以前只有 ``body`` 和 ``mirror_holder`` —— 两个我们自己的零件。
+      水表自己的东西（蓝色固定环、**翻开停放的蓝色盖板**）一个都没进来，
+      于是"蓝盖挡住表盘外缘"这件事在自检里完全不存在，只有做出来才会知道。
+      **遮挡判据的可信度上限，等于它的遮挡物清单的完整度。**
+    """
+    return {
+        "主体": design.body,
+        "镜片托板": design.mirror_holder,
+        "水表(含蓝环)": design.meter,
+        "翻开的蓝盖": design.blue_cover,
+    }
+
+
+@rule("OPT-01", "OPT", "OCR 关键区每一处都能经反射镜到达镜头（逐点光线追踪）",
       why="『会不会挡光』靠脑补是不可靠的——本项目所有结构性错误都是人看"
-          "渲染图发现的（DESIGN_NOTES §7.9）。把它变成射线求交，机器就能查。")
+          "渲染图发现的（DESIGN_NOTES §7.9）。把它变成射线求交，机器就能查。"
+          "★ 判据从『整个表盘』收窄成『OCR 关键区』，因为翻开的蓝盖**必然**"
+          "挡掉墙侧一圈外缘 —— 那是外购活动件的几何后果，设计不掉。"
+          "把做不到的事写成 ERROR 只会让人学会忽略红字；"
+          "**做不到的部分要单独量化（OPT-01-COV / OPT-11），不能混进硬判据里。**")
 def ray_trace(design):
     cfg = design.cfg
-    blockers = {"主体": design.body, "镜片托板": design.mirror_holder}
+    blockers = _camera_blockers(design)
+
+    # ---- 硬判据：字轮窗 + 四个指针小盘（含盘缘）----
+    crit = ox.ocr_critical_points(cfg)
+    bad_crit = []
+    for x, y, tag in crit:
+        r = ox.trace_dial_point(cfg, blockers, design.mirror_glass, x, y)
+        if not r.ok:
+            bad_crit.append((tag, r))
+    detail = f"{len(crit) - len(bad_crit)}/{len(crit)} 个 OCR 关键点畅通"
+    if bad_crit:
+        cnt = collections.Counter(f"{t}:{r.label}" for t, r in bad_crit)
+        detail += " —— " + "；".join(f"{k}×{v}" for k, v in list(cnt.items())[:6])
+    yield Result("OPT-01", "OPT", "OCR 关键区全部可见", not bad_crit, detail,
+                 ray_trace._rule["why"], ERROR)
+
+    # ---- 全表盘覆盖率：报数字，不判定 ----
     pts = ox.sample_dial_points(cfg, n_rim=24, n_ring=2)
     results = [(tag, ox.trace_dial_point(cfg, blockers, design.mirror_glass, x, y))
                for x, y, tag in pts]
     bad = [(tag, r) for tag, r in results if not r.ok]
-    detail = f"{len(results) - len(bad)}/{len(results)} 条光线畅通"
+    cov = f"{len(results) - len(bad)}/{len(results)} 条光线畅通"
     if bad:
-        cnt = collections.Counter(f"{tag}:{r.label}" for tag, r in bad)
-        detail += " —— " + "；".join(f"{k}×{v}" for k, v in list(cnt.items())[:6])
-    yield Result("OPT-01", "OPT", "表盘每一处都能经反射镜到达镜头", not bad, detail,
-                 ray_trace._rule["why"], ERROR)
+        cnt = collections.Counter(f"{r.blocker or r.label}" for _t, r in bad)
+        cov += " —— 被挡原因：" + "；".join(f"{k}×{v}" for k, v in cnt.items())
+    yield Result("OPT-01-COV", "OPT", "全表盘覆盖率（含必然被蓝盖挡掉的外缘）",
+                 True, cov,
+                 "丢的是墙侧最外一圈（蓝圈、刻度），没有 OCR 数据；"
+                 "边界值由 OPT-11 定量。", INFO)
 
     # 顺带把"镜片实际用到多大一块"报出来——这是选购镜片尺寸的直接依据
     hits = [r.mirror_point for _, r in results if r.mirror_point is not None]
@@ -67,16 +106,35 @@ def aperture(design):
         f"光学需 {need:.1f}（要求余量 ≥4mm）")
 
 
-@rule("OPT-03", "OPT", "采购镜片长度够用（含设计余量）",
-      why="余量写成参数而不是硬编码的 5.0：镜长的上限是被**蓝色盖板**卡住的"
-          "（见 FIT-14），余量正好等于阈值，硬编码 + 浮点误差会让这条检查"
-          "在 62.0 vs 62.00000000000001 上翻脸。判据要留 0.05 的数值容差。")
-def mirror_len(design):
+@rule("OPT-03", "OPT", "镜片**前缘**够到房间侧的光锥边界",
+      why="镜片的两端现在由两个完全不同的东西定：后缘被翻开的蓝盖顶死"
+          "（layout.mirror_y_rear），前缘才是纯光学要求。"
+          "所以判据不能再写成『镜长 ≥ 光学需求长度』—— 那条式子把两端混在一起，"
+          "后缘一让，前缘看起来也『不够长』，实际上前缘一点问题都没有。"
+          "**约束来自不同源头时，判据必须拆开写。**")
+def mirror_front(design):
     o = design.cfg.optics
-    margin = o.mirror_l - o.need_mirror_len
-    return margin >= o.mirror_len_margin - 0.05, (
-        f"光学需 {o.need_mirror_len:.2f}，采购 {o.mirror_l:.0f}，"
-        f"余量 {margin:.2f}（要求 ≥{o.mirror_len_margin:.1f}）")
+    front = lay.mirror_y_front(design.cfg)
+    need = o.ellipse_y[1]
+    margin = front - need
+    return margin >= o.mirror_front_margin - 0.05, (
+        f"镜片前缘 Y={front:.2f}，光锥边界 Y={need:.2f}，"
+        f"余量 {margin:.2f}（要求 ≥{o.mirror_front_margin:.1f}）；"
+        f"镜长 {o.mirror_l:.0f}，后缘 Y={lay.mirror_y_rear(design.cfg):.2f}")
+
+
+@rule("OPT-03B", "OPT", "镜片**后缘**不比蓝盖更严（再加长也换不来可视范围）",
+      why="后缘退到某个位置之后，限制可视范围的就变成蓝盖而不是镜片了。"
+          "这条判据确认我们停在了正确的位置：镜片没有短到白白丢掉本来看得见的表盘，"
+          "也没有长到（在托板上）撞进蓝盖。"
+          "两者相差 <1mm 就说明这一维已经调到头了 —— 再花钱买长镜片没有任何收益。",
+      severity=WARN)
+def mirror_rear_balanced(design):
+    _eff, by_cover, by_mirror = lay.dial_visible_limits(design.cfg)
+    gap = by_mirror - by_cover      # >0 说明镜片更严（还有可挖的余地）
+    return gap <= 1.0, (
+        f"蓝盖给的可见边界 Y={by_cover:.2f}，镜片给的 Y={by_mirror:.2f}，"
+        f"差 {gap:+.2f}mm（>1 说明镜片白白短了这么多）")
 
 
 # =============================================================================
@@ -122,13 +180,17 @@ def roi_fits(design):
 
 
 @rule("OPT-08", "OPT", "景深覆盖表盘井深",
-      why="表盘是一个 glass_depth 深的井，字轮在井底、指针在不同高度。"
+      why="表盘是一个井，字轮在井底、指针在不同高度，井口是**蓝色固定环的顶面**。"
+          "判据里的井深因此该用 ring_h（玻璃面→环顶 7.8）而不是 glass_depth"
+          "（银圈顶→玻璃面 4.0）—— 后者量的是另一段，只是碰巧也叫『深度』。"
+          "把这两个数分开实测之后（7.8 / 4.0）才看得出原来用错了哪一个。"
           "判据式子：DoF_half ≈ N·c·s²/f²，见 params.Optics.dof_half_mm。")
 def depth_of_field(design):
     o = design.cfg.optics
-    need = design.cfg.meter.glass_depth
-    return o.dof_half_mm >= need, \
-        f"景深半宽 ±{o.dof_half_mm:.1f}mm ≥ 井深 {need:.1f}mm（f={o.focal_mm:.2f}, N={o.f_number}）"
+    need = design.cfg.meter.ring_h
+    return o.dof_half_mm >= need, (
+        f"景深半宽 ±{o.dof_half_mm:.1f}mm ≥ 井深 {need:.1f}mm（玻璃面→固定环顶；"
+        f"f={o.focal_mm:.2f}, N={o.f_number}）")
 
 
 @rule("OPT-09", "OPT", "镜头孔不产生渐晕",
@@ -139,6 +201,42 @@ def no_vignetting(design):
     need_r = b.barrel_d / 2 + c.pod_front_wall * math.tan(math.radians(o.hfov_deg / 2))
     return c.lens_bore_d / 2 >= need_r + 1.0, \
         f"孔半径 {c.lens_bore_d / 2:.1f} ≥ 需 {need_r:.2f} + 1.0"
+
+
+@rule("OPT-11", "OPT", "被蓝盖挡掉的那圈表盘外缘里没有 OCR 要素",
+      why="★ 本轮最重要的一条新结论，而且是个**坏消息**：\n"
+          "  翻开的蓝盖是一堵立在 y≈−22 处、从 z≈11 一直到 z≈73 的墙。"
+          "表盘墙侧外缘发出的光要上行到虚拟相机，必须穿过这堵墙 —— "
+          "只有能从墙的**下缘**钻过去的那部分才看得见。"
+          "**镜片做多大、相机放多远都改变不了这一点**，它是外购活动件的几何后果。\n"
+          "  所以判据只能是：丢掉的那一圈里**不许有 OCR 要素**。"
+          "最靠墙的两个指针小盘的下边缘离这条线只有 1mm 上下，"
+          "而指针盘的位置目前还是照片目测 —— 这是现场唯一需要复核的事。\n"
+          "  想彻底解决只有一个办法：**把蓝盖整个取下来**（它是卡在铰链销上的，"
+          "不是铅封件）。取掉之后可视半径立刻恢复到 28.25，镜片也能加长回 60+。")
+def cover_shadow(design):
+    cfg = design.cfg
+    eff, by_cover, by_mirror = lay.dial_visible_limits(cfg, worst_case=True)
+    nom = lay.dial_visible_limits(cfg, worst_case=False)[0]
+    worst_y, worst_tag = 1e9, ""
+    for x, y, tag in ox.ocr_critical_points(cfg):
+        if y < worst_y:
+            worst_y, worst_tag = y, tag
+    margin = worst_y - eff
+    lost_r = cfg.meter.dial_r - abs(eff)
+    detail = (f"可见边界 Y={eff:.2f}（最坏情况；标称 {nom:.2f}）"
+              f"[蓝盖 {by_cover:.2f} / 镜片 {by_mirror:.2f}]；"
+              f"最靠墙的 OCR 要素 {worst_tag} 在 Y={worst_y:.2f}，"
+              f"余量 {margin:+.2f}mm；墙侧外缘丢掉约 {lost_r:.2f}mm 半径")
+    yield Result("OPT-11", "OPT", "OCR 要素全部落在可见区内", margin > 0.0, detail,
+                 cover_shadow._rule["why"], ERROR)
+    yield Result("OPT-11-M", "OPT", "可见边界的余量足够（≥1.5mm）", margin >= 1.5,
+                 f"余量 {margin:+.2f}mm。指针盘位置是照片目测 [估算]，"
+                 f"余量小于 1.5mm 时**必须**对着实表复核：确认四个指针小盘的"
+                 f"最外缘没有越过 Y={eff:.2f}。另可把 cover_hinge_tol "
+                 f"从 {cfg.meter.cover_hinge_tol} 收小（量一下铰链高度），"
+                 f"直接换回可见半径。",
+                 cover_shadow._rule["why"], WARN)
 
 
 @rule("OPT-10", "OPT", "画面是镜像的 —— 固件侧必须知道", severity=INFO,

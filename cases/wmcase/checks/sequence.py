@@ -86,7 +86,7 @@ def _max_z_in_region(cloud, dx, dy, dz) -> float:
 
 def _walk(design, steps: list[Step], phase: str, rid: str):
     """沿路径仿真一组步骤，产出 Result。"""
-    tol = design.cfg.mfg.vol_tol
+    base_tol = design.cfg.mfg.vol_tol
     ceiling = design.cfg.meter.ceiling_z
     for st in steps:
         if not st.check_path or st.part == "-":
@@ -111,10 +111,16 @@ def _walk(design, steps: list[Step], phase: str, rid: str):
                 v = inter_vol(other, moved)
                 if v > worst:
                     worst, worst_at, worst_who = v, (dx, dy, dz), name
+        # noqa: 保留 worst/worst_at 供下面的 Result 使用
         ignored = f"（忽略 {'/'.join(st.ignore)}）" if st.ignore else ""
+        #  弹性件（板卡卡钩）在装入路径上按设计就是要被顶开的，布尔体积分不出
+        #  "弹性让位"和"撞上了"。允许量由几何算出来（Step.snap_allow），不是手填的。
+        tol = base_tol + st.snap_allow
+        elastic = (f"（含卡钩弹性让位允许 {st.snap_allow:.1f}）"
+                   if st.snap_allow else "")
         yield Result(rid, "SEQ", f"[{phase}{st.index}] {st.name}",
                      worst < tol,
-                     f"路径最大干涉 {fmt(worst)}{ignored}"
+                     f"路径最大干涉 {fmt(worst)}{elastic}{ignored}"
                      + (f" @ 偏移 {worst_at} 撞到 {worst_who}" if worst_at else ""),
                      "静态干涉检查看不出顺序问题：板卡装得进、滑盖也装得上，"
                      "但先装滑盖就再也装不进板卡了。", ERROR)

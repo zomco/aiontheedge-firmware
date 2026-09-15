@@ -197,8 +197,203 @@ def pod_layout(cfg: Config) -> PodLayout:
 
 
 # =============================================================================
-#  3. 反射镜姿态
+#  2b. 板卡弹性卡钩 —— 装入路径上的"允许过盈"
 # =============================================================================
+
+def board_snap_strain(cfg: Config) -> float:
+    """
+    悬臂根部的最大弯曲应变（无量纲，0.012 = 1.2%）。
+
+    判据式子（悬臂端部位移 δ 的经典解，写出来接受检查）::
+
+        ε = 3 · t · δ / (2 · L²)
+        t = 悬臂厚度（变形方向）  δ = 端部位移  L = 自由长度
+
+    PETG 一次性装配的经验上限约 1.6%。超了不会当场断，
+    但会留下白化的塑性铰，第二次拆装就断了 —— **一次性卡扣和可拆卸卡扣
+    要用不同的应变上限**，本设计属于后者（每月抄表不动它，但换板要拆）。
+    """
+    c = cfg.case
+    return 3.0 * c.board_arm_t * c.board_hook_overlap / (2.0 * c.board_arm_len ** 2)
+
+
+def board_snap_bound(cfg: Config) -> float:
+    """
+    两个卡钩在装入路径上的名义过盈体积**上界**（mm³）。
+
+    这是"弹性让位"，不是碰撞 —— 但装配仿真（SEQ-01）是拿布尔体积判碰撞的，
+    分不出两者。所以给它一个**由几何算出来**的允许量，而不是随手填一个大数：
+
+    * 卡钩：楔形伸进 PCB 边缘的那一段三角形 × 钩高
+    * 压舌：满过盈平段 × PCB 板厚 × 舌高
+
+    ``× 1.5`` 的余量留给数值误差。允许量一旦被算大了，真正的碰撞就会被它盖住，
+    所以它必须跟着几何走，**不能是常数**。
+    """
+    c, p = cfg.case, pod_layout(cfg)
+    hook_h = p.pcb_z1 - c.board_hook_z0
+    f = c.board_hook_overlap / (c.board_hook_overlap + c.board_rib_clear)
+    hook = 0.5 * c.board_hook_overlap * (c.board_hook_ramp_y * f) * hook_h
+    tab = c.board_tab_overlap * (cfg.board.pcb_t_real + 0.6) * c.board_tab_h
+    return 2.0 * (hook + tab)
+
+
+def board_snap_allow(cfg: Config) -> float:
+    """装配仿真里给板卡那一步的额外容差。"""
+    return 1.5 * board_snap_bound(cfg)
+
+
+# =============================================================================
+#  3. 蓝色盖板的停放包络 —— 它决定托板能伸多靠后
+# =============================================================================
+#
+#  这一节是本项目"外部活动件反向约束自家零件"的唯一实例，也是最容易漏的一类
+#  尺寸链：蓝盖不是我们的零件，但它翻开之后就是一堵**长期立在那儿的墙**，
+#  我们的托板、镜片、乃至相机能看到多大一圈表盘，全被它划死。
+
+
+def cover_band(cfg: Config, angle_deg: float, worst_case: bool = True
+               ) -> tuple[float, float]:
+    """
+    盖板翻开 ``angle_deg`` 时的两个关键边界：``(最靠房间侧的 Y, 下缘的 Z)``。
+
+    判据式子（写出来接受检查，DESIGN_NOTES §7.7 的规矩）::
+
+        铰链高度 h = cover_hinge_above_ring (+ cover_hinge_tol，最坏情况)
+        铰链      (hy, hz) = (−dial_r, ring_h + h)
+        闭合时圆心相对铰链  (a, b) = (dial_r, cover_t/2 − h)
+        转 θ 后圆心         (hy + a·cosθ − b·sinθ,  hz + a·sinθ + b·cosθ)
+        圆片在 Y 上的半宽   cover_r·|cosθ| + (cover_t/2)·|sinθ|
+        圆片在 Z 上的半高   cover_r·|sinθ| + (cover_t/2)·|cosθ|
+
+    逆向验算 θ=90°（标称 h=5）：
+        max_y = −28.25 + 0 + 3.5 + 0 + 1.5 = −23.25   ✓ 铰链前方 5.0 的那条竖直面
+        z_c   = 12.8 + 28.25 + 0 = 41.05，半高 30.9 → 下缘 10.15   ✓
+
+    ``worst_case=True`` 时用 ``h + cover_hinge_tol``：铰链越高，翻开的盖板
+    整片越往房间侧挪、下缘也越高。让位量一律按这个算，可视范围则两个都报。
+    """
+    m = cfg.meter
+    h = m.cover_hinge_above_ring + (m.cover_hinge_tol if worst_case else 0.0)
+    hy, hz = m.cover_hinge_y, m.ring_h + h
+    th = math.radians(angle_deg)
+    ct, st = math.cos(th), math.sin(th)
+    a, b = m.dial_r, m.cover_t / 2 - h
+    yc = hy + a * ct - b * st
+    zc = hz + a * st + b * ct
+    half_y = m.cover_r * abs(ct) + (m.cover_t / 2) * abs(st)
+    half_z = m.cover_r * abs(st) + (m.cover_t / 2) * abs(ct)
+    return yc + half_y, zc - half_z
+
+
+def cover_max_y(cfg: Config, angle_deg: float, worst_case: bool = True) -> float:
+    """盖板翻开 ``angle_deg`` 时最靠房间侧的 Y。"""
+    return cover_band(cfg, angle_deg, worst_case)[0]
+
+
+def _park_angles(cfg: Config, n: int = 60):
+    lo, hi = cfg.meter.cover_park_range_deg
+    return [lo + (hi - lo) * i / n for i in range(n + 1)]
+
+
+def cover_clear_y(cfg: Config) -> float:
+    """
+    停放角区间内盖板侵入得**最厉害**的那个 Y。我们的零件必须全部留在它前面。
+
+    扫整个区间而不是只算实测的那一个角度：盖板靠重力/摩擦停住，逐台有差异，
+    而这条边界在 90°~105° 之间并不是单调的（90° 时最靠墙，105° 时最靠房间）。
+    """
+    return max(cover_max_y(cfg, a) for a in _park_angles(cfg))
+
+
+def holder_rear_cut_y(cfg: Config) -> float:
+    """托板后端的**竖直**切面 Y。"""
+    return cover_clear_y(cfg) + cfg.case.holder_cover_clear
+
+
+def holder_top_z(cfg: Config) -> float:
+    """
+    托板的削平高度。
+
+    ``ceiling_z − holder_lift_clear − holder_top_margin``：
+    只要托板整体不超过它，"抬起 8mm 不撞天花板"就是几何上不可能违反的，
+    不再依赖有人记得同步调整提手/支承片上的一堆高度常数。
+    """
+    c, m = cfg.case, cfg.meter
+    return m.ceiling_z - c.holder_lift_clear - c.holder_top_margin
+
+
+# =============================================================================
+#  4. 反射镜姿态
+# =============================================================================
+#
+#  镜片的**后缘**由蓝盖倒推，**前缘**由光学要求（ellipse_y[1]）决定，
+#  两者之间的距离就是要买多长的镜片。方向不能反过来：
+#  先定镜长再摆位置的话，蓝盖那一头永远对不上。
+
+
+def mirror_y_rear(cfg: Config) -> float:
+    """镜片镀膜面的后缘 Y = 托板竖直切面 + 端壁厚度。"""
+    return holder_rear_cut_y(cfg) + cfg.case.holder_rear_wall
+
+
+def mirror_y_front(cfg: Config) -> float:
+    """镜片镀膜面的前缘 Y。沿 45° 斜面走 mirror_l，在 Y 上就是 mirror_l/√2。"""
+    return mirror_y_rear(cfg) + cfg.optics.mirror_l / math.sqrt(2.0)
+
+
+def mirror_center_y(cfg: Config) -> float:
+    """镜面有效区中心的 Y —— 托板以它为中心排布。"""
+    return (mirror_y_rear(cfg) + mirror_y_front(cfg)) / 2.0
+
+
+def dial_visible_limits(cfg: Config, worst_case: bool = True
+                        ) -> tuple[float, float, float]:
+    """
+    表盘上**还能被相机看到**的最靠墙侧的 Y，以及两个限制各自的贡献。
+
+    返回 ``(生效值, 蓝盖给的限制, 镜片后缘给的限制)``，三个都是负值，
+    越接近 0 表示丢得越多。
+
+    ★ 这是本轮新增的一条结论，而且是个**坏消息**，必须写清楚：
+      翻开的蓝盖是一堵立在 y ≈ −23 处、从 z≈11 一直到 z≈72 的墙。
+      表盘外缘（墙侧）发出的光要上行到虚拟相机，必须穿过这道墙 ——
+      除非它能从墙的**下缘**钻过去。于是能不能看见就变成一条不等式：
+
+          光线在 y = y_cover 处的高度   z = path·(1 − |y_cover| / |y0|)
+          能看见  ⇔  z < 盖板下缘 z_b
+          解出    |y0| < |y_cover| / (1 − z_b/path)
+
+      **不管镜片做多大、相机放多远，这一段表盘都看不见。**
+      它是外购活动件的几何后果，不是我们能设计掉的。
+
+    镜片后缘的限制则是可设计的：从表盘点连到虚拟相机的直线必须落在镜面上，
+
+          y_mirror = lens_face_y · y0 / (path + y0)   →   y0 = path·y_m / (lens_face_y − y_m)
+
+    当前两者已经调到大致相当 —— 再加长镜片也换不来可视范围，因为盖板先挡住了。
+    """
+    o = cfg.optics
+    y_m = mirror_y_rear(cfg)
+    by_mirror = o.path * y_m / (o.lens_face_y - y_m)
+    by_cover = -1e9
+    for ang in _park_angles(cfg):
+        y_c, z_b = cover_band(cfg, ang, worst_case)
+        frac = 1.0 - z_b / o.path
+        cand = -abs(y_c) / frac if frac > 1e-6 else -cfg.meter.dial_r
+        by_cover = max(by_cover, cand)             # 取最严（最接近 0）
+    return max(by_mirror, by_cover), by_cover, by_mirror
+
+
+def dial_visible_y_min(cfg: Config) -> float:
+    """表盘可见区的墙侧边界（最坏情况）。自检 OPT-11 拿它和 OCR 关键要素比。"""
+    return dial_visible_limits(cfg)[0]
+
+
+def cover_bottom_z(cfg: Config) -> float:
+    """停放角区间内盖板下缘的**最低**高度（光线要从这下面钻过去）。"""
+    return min(cover_band(cfg, a)[1] for a in _park_angles(cfg))
+
 
 def mirror_frame(cfg: Config) -> Location:
     """
@@ -214,7 +409,7 @@ def mirror_frame(cfg: Config) -> Location:
     ``d_out = d_in − 2(d_in·n)n``，代入 ``d_in=(0,0,1)``、``n=(0,1,−1)/√2``：
     ``d_in·n = −1/√2`` → ``d_out = (0,0,1) + (0,1,−1) = (0,1,0)`` ✓
     """
-    yc = cfg.optics.mirror_center_y
+    yc = mirror_center_y(cfg)
     return Pos(0, yc, cfg.optics.mirror_z + yc) * Rot(-135, 0, 0)
 
 

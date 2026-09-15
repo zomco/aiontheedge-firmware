@@ -178,6 +178,38 @@ def collar_clears_body(design):
     return v < _tol(design), fmt(v)
 
 
+@rule("FIT-15", "FIT", "离停放蓝盖最近的其实是**镜片的后-背角**，不是托板",
+      why="`holder_cover_clear = 0.8` 是加在**托板的竖直后端面**上的，"
+          "但托板后端最靠墙的点并不是它 —— 镜片是一块矩形玻璃，它的后端面"
+          "垂直于 45° 斜面，于是玻璃的后-背角会比托板的竖直切面**再往墙侧探出**"
+          "`mirror_t/√2 ≈ 1.4mm` 中的一部分。"
+          "参数里写 0.8 而实际只有 0.4 —— 『标称间隙』和『真实间隙』不是同一个量，"
+          "这种错只有把真实的那个点算出来才发现得了。"
+          "**给间隙起名字的时候，要说清楚它是谁到谁的间隙。**")
+def glass_corner_clearance(design):
+    import math as _m
+
+    from ..layout import cover_clear_y, holder_rear_cut_y, mirror_center_y
+
+    cfg = design.cfg
+    o = cfg.optics
+    # 玻璃最靠墙的点：后端面 × 背面 的那条棱
+    corner = (mirror_center_y(cfg) - o.mirror_l / (2 * _m.sqrt(2))
+              - o.mirror_t / _m.sqrt(2))
+    gap_worst = corner - cover_clear_y(cfg)
+    holder_gap = holder_rear_cut_y(cfg) - cover_clear_y(cfg)
+    # 用实体再核一遍（最坏姿态已经含在 blue_cover 的 worst_case 里）
+    worst_v = 0.0
+    lo, hi = cfg.meter.cover_park_range_deg
+    for ang in (lo, (lo + hi) / 2, hi):
+        worst_v = max(worst_v, inter_vol(refs.blue_cover(cfg, ang), design.mirror_glass))
+    return gap_worst >= 0.3 and worst_v < _tol(design), (
+        f"玻璃后-背角 Y={corner:.2f}，蓝盖停放包络最前沿 Y={cover_clear_y(cfg):.2f} "
+        f"→ **真实间隙 {gap_worst:.2f}mm**（托板切面处标称 {holder_gap:.2f}mm）；"
+        f"实体求交 {fmt(worst_v)}。最坏情况已含铰链高度 "
+        f"±{cfg.meter.cover_hinge_tol} 的余量")
+
+
 @rule("FIT-14", "FIT", "蓝盖朝墙侧停放时不卡住任何零件",
       why="光学读表要求蓝盖**常开**并朝墙侧停放 —— 朝房间侧翻会横在相机和 45° 镜"
           "之间，朝左右翻会挡 LED，只有墙侧是空的。但墙侧正是镜片托板伸过去接"

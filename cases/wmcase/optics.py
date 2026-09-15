@@ -303,14 +303,34 @@ def ocr_critical_points(cfg: Config) -> list[tuple[float, float, str]]:
 
     眩光判据只看这里 —— 表盘最外缘（蓝圈、刻度）有没有反光不影响读数，
     把它算进去只会得到一个吓人但没意义的数字。
+
+    ⚠ 指针盘按**整个小盘**取点，不是只取盘心。
+      墙侧外缘现在有一圈被翻开的蓝盖挡住（见 layout.dial_visible_limits），
+      挡掉的正是小盘的下边缘 —— 只看盘心的判据对此完全无感，
+      会得出"一切正常"而实物上最外圈指针读不出来。
+      **判据的采样粒度必须细过它要发现的缺陷。**
     """
-    x0, x1, y0, y1 = cfg.meter.digit_window
+    m = cfg.meter
+    x0, x1, y0, y1 = m.digit_window
     out = []
     for i in range(5):
         for j in range(2):
             out.append((x0 + (x1 - x0) * i / 4, y0 + (y1 - y0) * j, "字轮窗"))
-    for i, (dx, dy) in enumerate(cfg.meter.pointer_positions):
+    #  小盘一圈的采样点要**夹到可视表盘之内**：指针盘不可能长到蓝色固定环
+    #  下面去。不夹的话，落在 r ≈ dial_r 边界上的采样点会和固定环的内柱面
+    #  擦上，射线追踪立刻报"被水表挡住" —— 那是采样点越界，不是设计缺陷。
+    #  **判据报错时，先确认采样点本身是合法的。**
+    rmax = m.dial_r - 0.6
+    for i, (dx, dy) in enumerate(m.pointer_positions):
         out.append((dx, dy, f"指针{i + 1}"))
+        for k in range(8):
+            a = 2 * math.pi * k / 8
+            px = dx + m.pointer_r * math.cos(a)
+            py = dy + m.pointer_r * math.sin(a)
+            r = math.hypot(px, py)
+            if r > rmax:
+                px, py = px * rmax / r, py * rmax / r
+            out.append((px, py, f"指针{i + 1}盘缘"))
     return out
 
 
