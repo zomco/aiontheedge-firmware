@@ -347,7 +347,8 @@ def mirror_center_y(cfg: Config) -> float:
     return (mirror_y_rear(cfg) + mirror_y_front(cfg)) / 2.0
 
 
-def dial_visible_limits(cfg: Config, worst_case: bool = True
+def dial_visible_limits(cfg: Config, worst_case: bool = True,
+                        only_angle: float | None = None
                         ) -> tuple[float, float, float]:
     """
     表盘上**还能被相机看到**的最靠墙侧的 Y，以及两个限制各自的贡献。
@@ -377,7 +378,10 @@ def dial_visible_limits(cfg: Config, worst_case: bool = True
     y_m = mirror_y_rear(cfg)
     by_mirror = o.path * y_m / (o.lens_face_y - y_m)
     by_cover = -1e9
-    for ang in _park_angles(cfg):
+    #  ``only_angle`` 用来逐个角度报数 —— 可见范围在停放角区间里**不是单调的**
+    #  （90° 25.4 / 110° 24.9 / 180° 29.1），只报一个"最坏值"看不出这件事，
+    #  而"翻到 90° 比翻到 110° 好"恰恰是现场唯一能操作的把手。
+    for ang in ([only_angle] if only_angle is not None else _park_angles(cfg)):
         y_c, z_b = cover_band(cfg, ang, worst_case)
         frac = 1.0 - z_b / o.path
         cand = -abs(y_c) / frac if frac > 1e-6 else -cfg.meter.dial_r

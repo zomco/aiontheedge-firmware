@@ -50,22 +50,45 @@ def _camera_blockers(design) -> dict:
           "把做不到的事写成 ERROR 只会让人学会忽略红字；"
           "**做不到的部分要单独量化（OPT-01-COV / OPT-11），不能混进硬判据里。**")
 def ray_trace(design):
+    import math as _m
+
     cfg = design.cfg
+    m = cfg.meter
     blockers = _camera_blockers(design)
 
-    # ---- 硬判据：字轮窗 + 四个指针小盘（含盘缘）----
+    #  分档和 OPT-11 保持一致：主数据（r ≤ 20）是硬判据，小盘最外那一圈
+    #  （r ≤ 25）是警告。两条判据说的是同一件事，档位必须对齐 ——
+    #  **同一个现象被一条规则判红、另一条判黄，读报告的人只会两条都不信。**
     crit = ox.ocr_critical_points(cfg)
-    bad_crit = []
-    for x, y, tag in crit:
-        r = ox.trace_dial_point(cfg, blockers, design.mirror_glass, x, y)
-        if not r.ok:
-            bad_crit.append((tag, r))
-    detail = f"{len(crit) - len(bad_crit)}/{len(crit)} 个 OCR 关键点畅通"
-    if bad_crit:
-        cnt = collections.Counter(f"{t}:{r.label}" for t, r in bad_crit)
+    primary = [(x, y, t) for x, y, t in crit
+               if _m.hypot(x, y) <= m.ocr_primary_r + 0.01]
+    outer = [(x, y, t) for x, y, t in crit
+             if _m.hypot(x, y) > m.ocr_primary_r + 0.01]
+
+    def run(points):
+        bad = []
+        for x, y, tag in points:
+            r = ox.trace_dial_point(cfg, blockers, design.mirror_glass, x, y)
+            if not r.ok:
+                bad.append((tag, r))
+        return bad
+
+    bad_p = run(primary)
+    detail = f"{len(primary) - len(bad_p)}/{len(primary)} 个主数据点畅通（r ≤ {m.ocr_primary_r:.0f}）"
+    if bad_p:
+        cnt = collections.Counter(f"{t}:{r.label}" for t, r in bad_p)
         detail += " —— " + "；".join(f"{k}×{v}" for k, v in list(cnt.items())[:6])
-    yield Result("OPT-01", "OPT", "OCR 关键区全部可见", not bad_crit, detail,
+    yield Result("OPT-01", "OPT", "OCR 主数据全部可见", not bad_p, detail,
                  ray_trace._rule["why"], ERROR)
+
+    bad_o = run(outer)
+    d2 = f"{len(outer) - len(bad_o)}/{len(outer)} 个小盘外缘点畅通（r = {m.ocr_full_r:.0f}）"
+    if bad_o:
+        cnt = collections.Counter(f"{t}:{r.label}" for t, r in bad_o)
+        d2 += " —— " + "；".join(f"{k}×{v}" for k, v in list(cnt.items())[:4])
+        d2 += "。都落在墙侧，是翻开的蓝盖必然挡掉的那一圈，定量见 OPT-11-M"
+    yield Result("OPT-01-OUT", "OPT", "指针小盘**最外一圈**也可见", not bad_o, d2,
+                 ray_trace._rule["why"], WARN)
 
     # ---- 全表盘覆盖率：报数字，不判定 ----
     pts = ox.sample_dial_points(cfg, n_rim=24, n_ring=2)
@@ -203,39 +226,45 @@ def no_vignetting(design):
         f"孔半径 {c.lens_bore_d / 2:.1f} ≥ 需 {need_r:.2f} + 1.0"
 
 
-@rule("OPT-11", "OPT", "被蓝盖挡掉的那圈表盘外缘里没有 OCR 要素",
-      why="★ 本轮最重要的一条新结论，而且是个**坏消息**：\n"
-          "  翻开的蓝盖是一堵立在 y≈−22 处、从 z≈11 一直到 z≈73 的墙。"
-          "表盘墙侧外缘发出的光要上行到虚拟相机，必须穿过这堵墙 —— "
-          "只有能从墙的**下缘**钻过去的那部分才看得见。"
-          "**镜片做多大、相机放多远都改变不了这一点**，它是外购活动件的几何后果。\n"
-          "  所以判据只能是：丢掉的那一圈里**不许有 OCR 要素**。"
-          "最靠墙的两个指针小盘的下边缘离这条线只有 1mm 上下，"
-          "而指针盘的位置目前还是照片目测 —— 这是现场唯一需要复核的事。\n"
-          "  想彻底解决只有一个办法：**把蓝盖整个取下来**（它是卡在铰链销上的，"
-          "不是铅封件）。取掉之后可视半径立刻恢复到 28.25，镜片也能加长回 60+。")
+@rule("OPT-11", "OPT", "被蓝盖挡掉的那圈表盘外缘里没有 OCR 主数据",
+      why="★ 翻开的蓝盖是一堵立在 y≈−23 的墙，表盘墙侧外缘的光要上行到相机"
+          "必须穿过它 —— **镜片做多大、相机放多远都改变不了这一点**。"
+          "判据分两档，因为丢掉的那一圈有多宽，后果完全不同："
+          "① **主数据**（字轮窗 + 四个小盘的**盘心**，r ≤ 20）丢了 = 读不出数 → ERROR；"
+          "② **小盘最外那一圈**（r ≤ 25，刻度环的边）丢零点几毫米 → WARN。"
+          "  用一条判据把两者混在一起，结论就没法指导决策了：报红你不知道是"
+          "『整个盘看不见』还是『边缘少了 0.1mm』。"
+          "  ⚠ 可见范围在停放角区间里**不是单调的**：90° 时 25.4mm，110° 时 24.9mm，"
+          "180° 时 29.1mm（完全不挡）。**翻得越开不一定越好**，翻到一半反而最糟。")
 def cover_shadow(design):
     cfg = design.cfg
+    m = cfg.meter
     eff, by_cover, by_mirror = lay.dial_visible_limits(cfg, worst_case=True)
     nom = lay.dial_visible_limits(cfg, worst_case=False)[0]
-    worst_y, worst_tag = 1e9, ""
-    for x, y, tag in ox.ocr_critical_points(cfg):
-        if y < worst_y:
-            worst_y, worst_tag = y, tag
-    margin = worst_y - eff
-    lost_r = cfg.meter.dial_r - abs(eff)
-    detail = (f"可见边界 Y={eff:.2f}（最坏情况；标称 {nom:.2f}）"
-              f"[蓝盖 {by_cover:.2f} / 镜片 {by_mirror:.2f}]；"
-              f"最靠墙的 OCR 要素 {worst_tag} 在 Y={worst_y:.2f}，"
-              f"余量 {margin:+.2f}mm；墙侧外缘丢掉约 {lost_r:.2f}mm 半径")
-    yield Result("OPT-11", "OPT", "OCR 要素全部落在可见区内", margin > 0.0, detail,
+    vis = abs(eff)
+    # 逐个停放角报一遍，让人看得出最糟的角度在哪
+    per_angle = []
+    for ang in (90, 100, 110, 130, 150, 180):
+        lim = abs(lay.dial_visible_limits(cfg, worst_case=True, only_angle=ang)[1])
+        per_angle.append(f"{ang}°:{lim:.1f}")
+
+    yield Result("OPT-11", "OPT", f"主数据（r ≤ {m.ocr_primary_r:.0f}）全部可见",
+                 vis >= m.ocr_primary_r,
+                 f"可见半径 {vis:.2f}mm（最坏；标称 {nom:+.2f} 的绝对值 {abs(nom):.2f}）"
+                 f"[蓝盖 {abs(by_cover):.2f} / 镜片 {abs(by_mirror):.2f}]；"
+                 f"主数据需 {m.ocr_primary_r:.0f}mm，余量 {vis - m.ocr_primary_r:+.2f}mm。"
+                 f"按停放角：{' '.join(per_angle)}",
                  cover_shadow._rule["why"], ERROR)
-    yield Result("OPT-11-M", "OPT", "可见边界的余量足够（≥1.5mm）", margin >= 1.5,
-                 f"余量 {margin:+.2f}mm。指针盘位置是照片目测 [估算]，"
-                 f"余量小于 1.5mm 时**必须**对着实表复核：确认四个指针小盘的"
-                 f"最外缘没有越过 Y={eff:.2f}。另可把 cover_hinge_tol "
-                 f"从 {cfg.meter.cover_hinge_tol} 收小（量一下铰链高度），"
-                 f"直接换回可见半径。",
+
+    margin = vis - m.ocr_full_r
+    yield Result("OPT-11-M", "OPT", f"指针小盘**整圈**（r ≤ {m.ocr_full_r:.0f}）也可见",
+                 margin >= 0.0,
+                 f"余量 {margin:+.2f}mm（小盘外缘 {m.ocr_full_r:.0f}mm vs 可见 {vis:.2f}mm）。"
+                 f"★ 六台一组里只有**两台**盖板被墙挡住（停在 90°~？），"
+                 f"另外四台能翻过 180° —— 那四台完全不挡（可见 29.1mm）。"
+                 f"这两台如果发现最外圈刻度读不全，办法有三个："
+                 f"把盖板再往墙侧压一点（90° 比 110° 好）、把盖板取下来、"
+                 f"或者接受只读字轮窗（AI-on-the-edge 本来也主要读字轮）。",
                  cover_shadow._rule["why"], WARN)
 
 

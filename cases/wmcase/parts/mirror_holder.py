@@ -92,6 +92,10 @@ def build_plate(cfg: Config) -> Part:
     return plate
 
 
+#: T 型槽**开口**比深槽往后多伸的长度（局部 Y，mm）。见 build_t_slot。
+MOUTH_REAR_EXT = 4.0
+
+
 def build_t_slot(cfg: Config) -> Part:
     """
     T 型槽（去料）—— 镜面朝下也不会掉出来。
@@ -116,9 +120,17 @@ def build_t_slot(cfg: Config) -> Part:
     # 深部：容纳镜片，局部 z 从 −mirror_t−0.1 到 +0.1（镀膜面在 z=0）
     deep = (loc * Pos(0, y_off, -(o.mirror_t + 0.2) / 2 + 0.1)
             * Box(o.mirror_w + m.fit_static, slot_len, o.mirror_t + 0.2))
-    # 开口：穿透唇口那一层，宽度收窄，两侧各留 holder_lip
-    mouth = (loc * Pos(0, y_off, lip_t / 2)
-             * Box(o.mirror_w - 2 * c.holder_lip, slot_len, lip_t + 2 * m.eps))
+    #  开口：穿透唇口那一层，宽度收窄，两侧各留 holder_lip。
+    #  ★ 开口要比深槽**再往后长一截**（MOUTH_REAR_EXT）：
+    #    深槽的后端face 是镜片的止挡，必须留着；但唇口那 0.8mm 一层在镜片后缘
+    #    以后就没用了，留着反而会**挡住射向镜片后缘的光**。
+    #    实测：表盘墙侧 r=25 的光线在局部 y=27.68 处穿过唇口平面，而深槽后端在
+    #    27.10 —— 差 0.58，于是那几条光线一头撞在端壁上，射线追踪报
+    #    "被镜片托板挡住"。**光线是斜着进槽的，它穿过唇口的位置比落到镜面上的
+    #    位置更靠后**；只看"落点在不在镜片上"会漏掉这一段。
+    mouth = (loc * Pos(0, y_off + MOUTH_REAR_EXT / 2, lip_t / 2)
+             * Box(o.mirror_w - 2 * c.holder_lip, slot_len + MOUTH_REAR_EXT,
+                   lip_t + 2 * m.eps))
     #  ⚠ 槽的后端**保持**垂直于 45° 斜面（和镜片的后端面平行）。
     #    试过改成竖直面（想让端壁等厚），结果是镜片装不进去 ——
     #    镜片是一块矩形玻璃，它的后端面本来就是 45° 的那个方向，

@@ -272,14 +272,15 @@ def sample_dial_points(cfg: Config, n_rim: int = 24, n_ring: int = 2
     """
     表盘采样点。刻意不做均匀网格，而是挑**最容易出问题的位置**：
 
-    * 中心（字轮所在）
-    * 可视表盘外缘整圈（最外圈指针在这里，也是最容易被井壁/结构挡住的地方）
+    * 中心
+    * 可视表盘外缘整圈（最容易被井壁/结构挡住的地方）
     * 中间环
-    * 四个指针盘的大致位置（LXSY-15E2 表盘布局）
+    * **OCR 关键区的内外两圈**（指针小盘所在的圆环 r ∈ [15, 25]）
 
     每个点带一个标签，报告里能直接说"是哪一处被挡了"。
     """
-    r = cfg.meter.dial_r
+    m = cfg.meter
+    r = m.dial_r
     pts: list[tuple[float, float, str]] = [(0.0, 0.0, "中心")]
     for k in range(n_ring):
         rr = r * (k + 1) / n_ring
@@ -287,50 +288,45 @@ def sample_dial_points(cfg: Config, n_rim: int = 24, n_ring: int = 2
         for i in range(n_rim):
             a = 2 * math.pi * i / n_rim
             pts.append((rr * math.cos(a), rr * math.sin(a), tag))
-    # 字轮窗口（位置来自 params.Meter.digit_window，不在这里写死）
-    x0, x1, y0, y1 = cfg.meter.digit_window
-    for i in range(5):
-        pts.append((x0 + (x1 - x0) * i / 4, (y0 + y1) / 2, "字轮窗"))
-    # 四个指针盘
-    for i, (dx, dy) in enumerate(cfg.meter.pointer_positions):
-        pts.append((dx, dy, f"指针{i + 1}"))
+    for rr, tag in ((m.ocr_full_r, "小盘外缘"),
+                    (m.pointer_center_r - m.pointer_r, "小盘内缘")):
+        for i in range(n_rim):
+            a = 2 * math.pi * i / n_rim
+            pts.append((rr * math.cos(a), rr * math.sin(a), tag))
     return pts
 
 
-def ocr_critical_points(cfg: Config) -> list[tuple[float, float, str]]:
+def ocr_critical_points(cfg: Config, n_az: int = 36
+                        ) -> list[tuple[float, float, str]]:
     """
-    **OCR 真正要读的那几处**：字轮窗 + 四个指针盘。
+    **OCR 真正要读的那一片**：半径 ≤ ``ocr_full_r``(25) 的整个圆盘。
 
-    眩光判据只看这里 —— 表盘最外缘（蓝圈、刻度）有没有反光不影响读数，
-    把它算进去只会得到一个吓人但没意义的数字。
+    为什么是"整个圆盘"而不是四个小盘的坐标
+    --------------------------------------
+    因为**我们不知道表盘的转向**。水表拧到管路上最后停在哪个角度是随机的，
+    照片只够看清布局、看不准方位。既然不知道，就不能假设某个小盘"正好没落在
+    最糟的位置上" —— 判据必须对任意转向都成立。
 
-    ⚠ 指针盘按**整个小盘**取点，不是只取盘心。
-      墙侧外缘现在有一圈被翻开的蓝盖挡住（见 layout.dial_visible_limits），
-      挡掉的正是小盘的下边缘 —— 只看盘心的判据对此完全无感，
-      会得出"一切正常"而实物上最外圈指针读不出来。
-      **判据的采样粒度必须细过它要发现的缺陷。**
+    上一版写死了四个坐标 ``(±14, −8/−18)``，那是照片目测的猜测；
+    实测下来小盘中心在 r=20、半径 5，四个小盘扫过的是 r ∈ [15, 25] 的整条圆环。
+    猜的坐标不但不准，还**恰好避开了最糟的方位**（正对 LED 的那条轴），
+    于是眩光判据报了个很漂亮的 38°，而按整圈算只有 21°。
+
+    > **用猜的坐标做判据，等于让判据替你挑一个好结果。**
+
+    返回的点按半径分档打标签，报告里能看出问题出在内圈还是外圈。
     """
     m = cfg.meter
-    x0, x1, y0, y1 = m.digit_window
-    out = []
-    for i in range(5):
-        for j in range(2):
-            out.append((x0 + (x1 - x0) * i / 4, y0 + (y1 - y0) * j, "字轮窗"))
-    #  小盘一圈的采样点要**夹到可视表盘之内**：指针盘不可能长到蓝色固定环
-    #  下面去。不夹的话，落在 r ≈ dial_r 边界上的采样点会和固定环的内柱面
-    #  擦上，射线追踪立刻报"被水表挡住" —— 那是采样点越界，不是设计缺陷。
-    #  **判据报错时，先确认采样点本身是合法的。**
-    rmax = m.dial_r - 0.6
-    for i, (dx, dy) in enumerate(m.pointer_positions):
-        out.append((dx, dy, f"指针{i + 1}"))
-        for k in range(8):
-            a = 2 * math.pi * k / 8
-            px = dx + m.pointer_r * math.cos(a)
-            py = dy + m.pointer_r * math.sin(a)
-            r = math.hypot(px, py)
-            if r > rmax:
-                px, py = px * rmax / r, py * rmax / r
-            out.append((px, py, f"指针{i + 1}盘缘"))
+    out: list[tuple[float, float, str]] = [(0.0, 0.0, "中心")]
+    rings = (
+        (m.pointer_center_r - m.pointer_r, "小盘内缘"),
+        (m.pointer_center_r, "小盘心/字轮窗"),
+        (m.ocr_full_r, "小盘外缘"),
+    )
+    for rr, tag in rings:
+        for i in range(n_az):
+            a = 2 * math.pi * i / n_az
+            out.append((rr * math.cos(a), rr * math.sin(a), tag))
     return out
 
 

@@ -221,8 +221,13 @@ def build_mast_half(cfg: Config) -> Part:
 # =============================================================================
 
 #: 灯座凸台前端面在 LED 局部坐标里的高度（法兰底面为 0，+Z = 出射方向）。
-#: 灯珠总高 4.8，所以凸台前端取 +2.0 时，穹顶露出 2.8mm，120° 光型不会被遮。
-LED_BOSS_FRONT_Z = 2.0
+#: 灯珠总高 4.8、法兰厚 1.0，穹顶最宽的那个圆在 +3.2。
+#: ★ 2.0 → 1.2：灯珠降到 z=17 之后出射更掠，凸台 Ø12 的**前缘**开始切穹顶
+#:   下半边的光（LED-01 从 2.4% 升到 4.4%，LED-02 体积法报 94mm³）。
+#:   凸台前端收到 1.2（刚好盖住 1.0 厚的法兰），穹顶露出 3.6mm，光型重新放开。
+#:   **凸台是用来"扶住法兰"的，不是用来"包住灯珠"的** —— 多包的每一毫米
+#:   都直接从光型里扣。
+LED_BOSS_FRONT_Z = 1.2
 #: 座孔往立板里钻的深度（自法兰底面算）
 LED_SEAT_DEPTH = 5.0
 
@@ -273,7 +278,7 @@ def build_led_cut_half(cfg: Config) -> Part:
     )
     # 引线过孔：沿灯轴再往里 1mm，破进立板内侧面的走线槽（自检 WIRE-01）。
     # 再深就会从立板**外**表面钻出去（自检 WIRE-04 会报），所以刻意做短。
-    lead_len = LED_SEAT_DEPTH + 1.0
+    lead_len = LED_SEAT_DEPTH + lg.lead_bore_ext
     lead = (loc * Pos(0, 0, -lead_len)
             * Cylinder(lg.lead_bore_d / 2, lead_len + 1.0,
                        align=(Align.CENTER, Align.CENTER, Align.MIN)))

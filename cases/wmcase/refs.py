@@ -287,7 +287,30 @@ def blue_ring(cfg: Config) -> Part:
     m = cfg.meter
     ring = cyl_z(0, 0, 0.0, m.ring_h, m.ring_od)
     ring -= cyl_z(0, 0, -1.0, m.ring_h + 1.0, m.dial_visible_d)
-    return ring
+    return ring + blue_hinge(cfg)
+
+
+def blue_hinge(cfg: Config) -> Part:
+    """
+    蓝盖的**铰链销 + 支耳**（实测 Ø5.7 × 长 18，销心在 y=−dial_r、高出环顶 4.7）。
+
+    以前没建它，理由是"应该碰不到"。量完才知道确实碰不到 ——
+    销体在 z ∈ [9.7, 15.4]、最外半径 31.1，而抱箍座圈在 z ∈ [4.0, 6.5]，
+    **Z 上根本不相交**。
+
+    但"算出来碰不到"和"模型里没有它"是两回事：没有它的时候，
+    任何一次几何改动（座圈加厚、加高、内径外移）都不会有人发现问题。
+    **把已知存在的障碍物建进模型，是让未来的改动仍然安全的唯一办法。**
+    """
+    m = cfg.meter
+    z = m.ring_h + m.cover_hinge_above_ring
+    pin = cyl_x(-m.hinge_pin_len / 2, m.hinge_pin_len / 2,
+                -m.dial_r, z, m.hinge_pin_d)
+    # 把销撑起来的支耳：从环顶面长到销心，宽度跟销一样
+    lug = bx(-m.hinge_pin_len / 2, m.hinge_pin_len / 2,
+             -m.dial_r - m.hinge_pin_d / 2, -m.dial_r + m.hinge_pin_d / 2,
+             m.ring_h - 0.5, z)
+    return pin + lug
 
 
 def blue_cover(cfg: Config, angle_deg: float | None = None,

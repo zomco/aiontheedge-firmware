@@ -99,6 +99,23 @@ def ring_matches_bezel(design):
                         f"偏差 {dev:.2f}mm；推出的壁厚 {m.ring_t:.2f}")
 
 
+@rule("DIM-14", "DIM", "铰链高度的三条测量互相印证",
+      why="铰链高度直接决定翻开的盖板侵入多少，进而决定表盘墙侧还能看见多大一圈 —— "
+          "整条链上最敏感的一个输入。现场量了两条：铰链销心到**银圈**顶面 8.3、"
+          "到**蓝环**顶面 4.7；两者之差应当等于上一轮独立实测的"
+          "『银圈顶面→蓝环顶面 3.8』。"
+          "对上了才敢把不确定度从 ±1.0 收到 ±0.3（直接换回约 0.7mm 可见半径）。"
+          "**把不确定度收小是要拿证据换的，不能因为『现在是实测值了』就自动收小。**")
+def hinge_height_consistent(design):
+    m = design.cfg.meter
+    implied = m.hinge_above_bezel - m.cover_hinge_above_ring
+    dev = abs(implied - m.bezel_to_ring_top)
+    return dev <= 0.4, (
+        f"{m.hinge_above_bezel} − {m.cover_hinge_above_ring} = {implied:.1f} vs "
+        f"独立实测的银圈顶→环顶 {m.bezel_to_ring_top}，偏差 {dev:.1f}mm（容许 0.4）；"
+        f"据此取不确定度 ±{m.cover_hinge_tol}")
+
+
 @rule("DIM-12", "DIM", "座圈架在银圈顶面上，既不悬空也不压到塑料环",
       why="座圈是整机**唯一**的高度基准，它必须实实在在坐在银圈那个平的加工面上。"
           "两头都会出事：内径做小了会压到蓝色固定环（塑料，会被压变形，"
